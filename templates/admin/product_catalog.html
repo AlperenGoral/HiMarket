@@ -1,0 +1,239 @@
+{% extends "admin/base_site.html" %}
+{% load static l10n %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- SAYFA BAŞLIĞI VE HİYERARŞİK AKSİYONLAR -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary text-white fs-8 px-2 py-0.5 rounded-1">ÜRÜN YÖNETİMİ</span>
+                <span class="text-secondary fs-8 fw-semibold">/ Master Veri Havuzu</span>
+            </div>
+            <h1 class="h3 fw-bold text-slate-900 mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-grid-3x3-gap-fill text-warning"></i> ÜRÜN YÖNETİM KATALOĞU
+            </h1>
+            <span class="text-secondary small fw-medium">Market stokları, birim maliyetler, satış fiyatları, kar marjları ve tedarikçi eşleştirmeleri.</span>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'stock_entry_create' %}" class="btn btn-sm btn-outline-primary fw-bold px-3 py-1.5 d-flex align-items-center gap-1.5">
+                <i class="bi bi-box-arrow-in-down"></i> Fatura / Mal Kabulü Yap
+            </a>
+            <a href="{% url 'product_create_view' %}" class="btn btn-sm btn-success text-white fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1.5">
+                <i class="bi bi-plus-lg"></i> Yeni Ürün Tanımla
+            </a>
+        </div>
+    </div>
+
+    <!-- BİLGİ & UYARI MESAJLARI -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3 rounded-2 shadow-xs py-2 px-3 fs-7" role="alert">
+                <i class="bi bi-check-circle-fill me-1"></i> {{ message }}
+                <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- ENVANTER VE FİNANSAL KPI ÖZET KARTLARI -->
+    <div class="row g-2.5 mb-3">
+        <div class="col-6 col-lg-3">
+            <div class="tabler-card border-start border-4 border-primary h-100 p-2.5">
+                <div class="text-secondary fs-8 fw-bold text-uppercase">TOPLAM ÜRÜN ÇEŞİDİ</div>
+                <div class="fs-4 fw-extrabold text-slate-900">{{ total_products_count }} <span class="fs-7 fw-normal text-slate-500">Çeşit</span></div>
+                <div class="text-slate-500 fs-8 mt-0.5">Sistemde kayıtlı aktif ürünler</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="tabler-card border-start border-4 border-info h-100 p-2.5">
+                <div class="text-secondary fs-8 fw-bold text-uppercase">STOK MALİYET DEĞERİ</div>
+                <div class="fs-4 fw-extrabold text-primary">₺{{ total_stock_cost|floatformat:2 }}</div>
+                <div class="text-slate-500 fs-8 mt-0.5">Mevcut stok alış toplamı</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="tabler-card border-start border-4 border-success h-100 p-2.5">
+                <div class="text-secondary fs-8 fw-bold text-uppercase">RAF SATIŞ DEĞERİ</div>
+                <div class="fs-4 fw-extrabold text-success">₺{{ total_stock_value|floatformat:2 }}</div>
+                <div class="text-slate-500 fs-8 mt-0.5">Mevcut stok perakende cirosu</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="tabler-card border-start border-4 border-warning h-100 p-2.5">
+                <div class="text-secondary fs-8 fw-bold text-uppercase">KRİTİK / TÜKENEN STOK</div>
+                <div class="fs-4 fw-extrabold text-warning">
+                    {{ low_stock_count }} <span class="fs-7 fw-bold text-danger">({{ out_of_stock_count }} Sıfır)</span>
+                </div>
+                <div class="text-slate-500 fs-8 mt-0.5">Tedarik edilmesi gerekenler</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HIZLI DURUM SEKMELERİ (PILLS) -->
+    <div class="d-flex flex-wrap gap-1.5 mb-2.5">
+        <a href="{% url 'product_catalog_view' %}" class="btn btn-sm {% if not stock_status %}btn-primary text-white{% else %}btn-light border text-slate-700{% endif %} fw-bold px-3 py-1">
+            Tüm Ürünler ({{ total_products_count }})
+        </a>
+        <a href="{% url 'product_catalog_view' %}?stock=low" class="btn btn-sm {% if stock_status == 'low' %}btn-warning text-dark{% else %}btn-light border text-slate-700{% endif %} fw-bold px-3 py-1">
+            ⚠️ Kritik Stoktakiler ({{ low_stock_count }})
+        </a>
+        <a href="{% url 'product_catalog_view' %}?stock=out" class="btn btn-sm {% if stock_status == 'out' %}btn-danger text-white{% else %}btn-light border text-slate-700{% endif %} fw-bold px-3 py-1">
+            ❌ Tükenenler ({{ out_of_stock_count }})
+        </a>
+        <a href="{% url 'product_catalog_view' %}?stock=quick" class="btn btn-sm {% if stock_status == 'quick' %}btn-info text-white{% else %}btn-light border text-slate-700{% endif %} fw-bold px-3 py-1">
+            ⭐ Kasa Hızlı Butonları ({{ quick_button_count }})
+        </a>
+        <a href="{% url 'product_catalog_view' %}?stock=weighted" class="btn btn-sm {% if stock_status == 'weighted' %}btn-secondary text-white{% else %}btn-light border text-slate-700{% endif %} fw-bold px-3 py-1">
+            ⚖️ Tartılı / Terazi Ürünleri
+        </a>
+    </div>
+
+    <!-- ARAMA VE ÇOKLU FİLTRE ÇUBUĞU -->
+    <form method="get" class="tabler-card mb-3 py-2 px-3">
+        {% if stock_status %}<input type="hidden" name="stock" value="{{ stock_status }}">{% endif %}
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border"><i class="bi bi-search text-secondary"></i></span>
+                    <input type="text" name="q" class="form-control" placeholder="Ürün adı, barkod veya koli barkodu ara..." value="{{ search_q }}">
+                </div>
+            </div>
+            <div class="col-12 col-md-3">
+                <select name="category" class="form-select">
+                    <option value="">-- Tüm Kategoriler --</option>
+                    {% for c in categories %}
+                        <option value="{{ c.id }}" {% if category_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <select name="supplier" class="form-select">
+                    <option value="">-- Tüm Toptancılar --</option>
+                    {% for s in suppliers %}
+                        <option value="{{ s.id }}" {% if supplier_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.company_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-2 d-flex gap-1">
+                <button type="submit" class="btn btn-primary fw-bold w-100 text-white">Filtrele</button>
+                {% if search_q or category_id or supplier_id or stock_status %}
+                    <a href="{% url 'product_catalog_view' %}" class="btn btn-light border" title="Filtreyi Temizle"><i class="bi bi-x-lg"></i></a>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+
+    <!-- ÜRÜN TABLOSU -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold text-slate-900">ÜRÜN LİSTESİ ({{ products.count }} Sonuç)</span>
+            <span class="badge bg-slate-100 text-slate-800 border border-slate-300 fs-8 fw-bold">Katalog Görünümü</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table mb-0 fs-8 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-3" style="min-width: 250px;">Ürün Tanımı & Barkod</th>
+                        <th>Kategori</th>
+                        <th>Toptancı / Tedarikçi</th>
+                        <th class="text-end">Alış (Maliyet)</th>
+                        <th class="text-end">Satış (KDV Dahil)</th>
+                        <th class="text-center">KDV</th>
+                        <th class="text-center">Mevcut Stok</th>
+                        <th class="text-end pe-3" style="min-width: 170px;">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in products %}
+                        <tr>
+                            <td class="ps-3">
+                                <div class="d-flex align-items-center gap-2.5">
+                                    {% if p.image %}
+                                        <img src="{{ p.image.url }}" class="rounded-2 border flex-shrink-0" style="width: 38px; height: 38px; object-fit: cover;">
+                                    {% else %}
+                                        <div class="bg-light border rounded-2 d-flex align-items-center justify-content-center text-slate-400 flex-shrink-0" style="width: 38px; height: 38px;">
+                                            <i class="bi bi-box fs-5"></i>
+                                        </div>
+                                    {% endif %}
+                                    <div>
+                                        <a href="{% url 'product_edit_view' p.id %}" class="text-slate-900 fs-7 fw-bold text-decoration-none d-block hover-primary">
+                                            {{ p.name }}
+                                        </a>
+                                        <div class="d-flex align-items-center gap-1.5 mt-0.5">
+                                            <span class="font-monospace fw-bold text-primary" style="font-size: 0.75rem;">{{ p.barcode }}</span>
+                                            {% if p.secondary_barcode %}
+                                                <span class="text-slate-500 font-monospace fs-8" title="İkincil / Koli Barkodu">[{{ p.secondary_barcode }}]</span>
+                                            {% endif %}
+                                            {% if p.is_quick_button %}
+                                                <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold" style="font-size: 0.68rem;">Hızlı Tuş</span>
+                                            {% endif %}
+                                            {% if p.is_weighted %}
+                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold" style="font-size: 0.68rem;">Tartılı</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if p.category %}
+                                    <span class="badge bg-slate-100 text-slate-800 border border-slate-300 px-2.5 py-1 fw-bold">{{ p.category.name }}</span>
+                                {% else %}
+                                    <span class="text-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-slate-700 fw-medium">
+                                {% if p.supplier %}
+                                    <i class="bi bi-truck text-primary me-1"></i> {{ p.supplier.company_name|truncatechars:20 }}
+                                {% else %}
+                                    <span class="text-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-semibold text-slate-600 font-monospace">₺{{ p.buy_price|floatformat:2 }}</td>
+                            <td class="text-end">
+                                <span class="fw-extrabold text-success fs-7 font-monospace d-block">₺{{ p.sell_price|floatformat:2 }}</span>
+                                {% if p.buy_price > 0 %}
+                                    <div class="mt-0.5">
+                                        <span class="badge {% if p.profit_percent >= 30 %}bg-success-subtle text-success border border-success-subtle{% elif p.profit_percent > 0 %}bg-primary-subtle text-primary border border-primary-subtle{% else %}bg-danger-subtle text-danger border border-danger-subtle{% endif %} px-1.5 py-0.5" style="font-size: 0.72rem;">
+                                            Kâr: %{{ p.profit_percent|floatformat:1 }} (+₺{{ p.profit_amount|floatformat:2 }})
+                                        </span>
+                                    </div>
+                                {% else %}
+                                    <span class="text-secondary fs-8">Maliyet girilmedi</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center text-slate-700 fw-semibold font-monospace">%{{ p.vat_rate|floatformat:0 }}</td>
+                            <td class="text-center">
+                                {% if p.stock_quantity <= 0 %}
+                                    <span class="badge bg-danger text-white px-2.5 py-1">TÜKENDİ (0)</span>
+                                {% elif p.is_low_stock %}
+                                    <span class="badge bg-warning text-dark px-2.5 py-1">KRİTİK ({{ p.stock_quantity|floatformat:1 }} {{ p.unit }})</span>
+                                {% else %}
+                                    <span class="badge bg-success text-white px-2.5 py-1">{{ p.stock_quantity|floatformat:1 }} {{ p.unit }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-3">
+                                <div class="d-inline-flex gap-1.5">
+                                    <a href="{% url 'stock_entry_create' %}?product_id={{ p.id }}" class="btn btn-sm btn-outline-success fw-bold px-2 py-1 fs-8" title="Bu ürün için fatura/stok girişi yap">
+                                        <i class="bi bi-box-arrow-in-down me-1"></i> Mal Al
+                                    </a>
+                                    <a href="{% url 'product_edit_view' p.id %}" class="btn btn-sm btn-outline-primary fw-bold px-2 py-1 fs-8" title="Ürünü Düzenle">
+                                        <i class="bi bi-pencil-square me-1"></i> Düzenle
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-secondary">
+                                <i class="bi bi-box-seam fs-1 d-block mb-2 text-slate-300"></i>
+                                <span class="fw-bold">Arama kriterlerine uygun ürün bulunamadı.</span><br>
+                                <small>Filtreleri temizleyebilir veya yeni ürün ekleyebilirsiniz.</small>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

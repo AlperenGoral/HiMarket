@@ -1,0 +1,1067 @@
+{% extends 'base.html' %}
+{% load l10n %}
+
+{% block title %}Hİ MARKET - Kasa Satış Ekranı (POS){% endblock %}
+
+{% block content %}
+<div class="row g-2">
+    <!-- SOL PANEL: SATIŞ FİŞİ KALEMLERİ TABLOSU (Kompakt Kasa Sepeti %42) -->
+    <div class="col-12 col-lg-5 col-xl-5">
+        <div class="pos-card p-2.5 d-flex flex-column" style="height: calc(100vh - 85px);">
+            <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                <div class="d-flex align-items-center gap-1.5">
+                    <i class="bi bi-receipt-cutoff text-primary fs-5" id="cartHeaderIcon"></i>
+                    <span class="fw-bold fs-7 text-slate-800" id="cartHeaderTitle">SATIŞ FİŞİ</span>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-bold" id="receiptNumberBadge">YENİ FİŞ</span>
+                </div>
+                <div class="d-flex align-items-center gap-1.5">
+                    <!-- İADE MODU BUTONU (F8) -->
+                    <button type="button" class="btn btn-outline-danger btn-sm fw-bold px-2 py-0.5 d-flex align-items-center gap-1 fs-8" id="btnToggleReturn" onclick="toggleReturnMode()">
+                        <i class="bi bi-arrow-repeat"></i> <span id="returnBtnLabel">İade [F8]</span>
+                    </button>
+                    <span class="badge bg-slate-100 border border-slate-300 text-slate-900 px-2 py-1 fs-8 fw-bold">
+                        Adet: <strong id="itemCountDisplay" class="text-primary fs-7">0</strong>
+                    </span>
+                    <button class="btn btn-outline-secondary btn-sm fw-bold px-2 py-0.5 fs-8" onclick="clearCart()" id="btnClearCart" title="Fişi Temizle (DEL)">
+                        <i class="bi bi-trash3-fill"></i> Sil
+                    </button>
+                </div>
+            </div>
+
+            <!-- İADE UYARI BANNERI (GİZLİ BAŞLAR) -->
+            <div id="returnModeBanner" class="alert alert-danger py-1.5 px-2.5 mb-2 rounded-2 border-danger d-none fs-8">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="fw-bold d-flex align-items-center gap-1.5">
+                        <i class="bi bi-exclamation-triangle-fill fs-6"></i>
+                        <span><strong>MÜŞTERİ İADE MODU!</strong> Ürünler stoğa girer, kasadan iade ödenir.</span>
+                    </span>
+                    <button type="button" class="btn btn-sm btn-light text-danger fw-bold py-0 px-1.5 fs-8" onclick="toggleReturnMode()">İptal</button>
+                </div>
+            </div>
+
+            <!-- Fiş Tablosu Kaydırma Alanı -->
+            <div class="cart-scroll-area flex-grow-1 border rounded-2 overflow-auto">
+                <table class="table table-hover cart-table mb-0 fs-8 align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 28px;">#</th>
+                            <th>Ürün Adı</th>
+                            <th class="text-center" style="width: 110px;">Miktar</th>
+                            <th class="text-end" style="width: 75px;">Fiyat</th>
+                            <th class="text-end" style="width: 80px;">Toplam</th>
+                            <th class="text-center" style="width: 32px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cartTableBody">
+                        <!-- Javascript ile doldurulacaktır -->
+                        <tr id="emptyCartRow">
+                            <td colspan="6" class="text-center py-5 text-slate-400">
+                                <i class="bi bi-upc-scan fs-1 d-block mb-2 text-primary opacity-50"></i>
+                                <span class="fs-7 fw-bold text-slate-600">Henüz ürün okutulmadı.</span><br>
+                                <small class="text-slate-400">Barkod okutunuz veya sağdaki butonlara tıklayınız.</small>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Fiş Alt Toplam Özeti (Light Slate Strip) -->
+            <div class="bg-slate-50 border rounded-2 p-2 mt-2">
+                <div class="row g-1 text-center text-md-start align-items-center">
+                    <div class="col-4 border-end">
+                        <small class="text-slate-500 d-block fw-bold fs-8">ARA TOPLAM</small>
+                        <strong class="fs-6 mono text-slate-800" id="subTotalDisplay">0.00 TL</strong>
+                    </div>
+                    <div class="col-4 border-end text-center">
+                        <small class="text-slate-500 d-block fw-bold fs-8">TOPLAM KDV</small>
+                        <strong class="fs-6 mono text-info" id="vatTotalDisplay">0.00 TL</strong>
+                    </div>
+                    <div class="col-4 text-end">
+                        <small class="text-slate-500 d-block fw-bold fs-8">İSKONTO</small>
+                        <strong class="fs-6 mono text-danger" id="discountDisplay">0.00 TL</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SAĞ PANEL: DEV TUTAR, BARKOD, HIZLI BUTONLAR & ÖDEME (Geniş Operasyon Alanı %58) -->
+    <div class="col-12 col-lg-7 col-xl-7">
+        <div class="d-flex flex-column gap-2" style="height: calc(100vh - 85px);">
+            <!-- DEV GENEL TOPLAM EKRANI (PureCode High-Contrast Banner) -->
+            <div class="total-display-card p-3 text-center">
+                <span class="text-slate-300 small fw-bold text-uppercase letter-spacing-1 d-block mb-1" id="totalCardMainTitle">
+                    ÖDENECEK GENEL TOPLAM
+                </span>
+                <div class="d-flex justify-content-center align-items-baseline gap-2">
+                    <span class="total-amount-number" id="grandTotalDisplay">0.00</span>
+                    <span class="fs-2 fw-extrabold text-amber-400">TL</span>
+                </div>
+            </div>
+
+            <!-- BARKOD OKUYUCU VE DOKUNMATİK GİRİŞ ALANI -->
+            <div class="pos-card p-2.5">
+                <div class="input-group input-group-lg shadow-sm">
+                    <span class="input-group-text bg-slate-100 text-primary border-slate-300 fw-bold">
+                        <i class="bi bi-qr-code-scan fs-4"></i>
+                    </span>
+                    <input type="text" id="barcodeInput" class="form-control bg-white text-slate-900 fw-extrabold fs-3 border-slate-300 mono" 
+                           placeholder="Barkod okutunuz..." autofocus autocomplete="off">
+                    <button class="btn btn-warning fw-extrabold px-3.5 d-flex align-items-center gap-1.5" type="button" onclick="switchRightTab('numpad')" id="btnOpenNumpad" title="Dokunmatik Tuş Takımını Aç">
+                        <i class="bi bi-calculator-fill fs-5"></i> TUŞ TAKIMI
+                    </button>
+                    <button class="btn btn-primary fw-bold px-4" onclick="submitBarcode()">
+                        <i class="bi bi-arrow-return-left"></i> EKLE
+                    </button>
+                </div>
+                <div class="d-flex justify-content-between px-1 mt-1.5">
+                    <small class="text-slate-500"><i class="bi bi-hand-index-thumb"></i> Dokunmatik ekran veya USB barkod okuyucu hazır</small>
+                    <small class="text-success fw-bold" id="scannerStatus">🟢 Dokunmatik POS Hazır</small>
+                </div>
+            </div>
+
+            <!-- DOKUNMATİK OPERASYONEL HUB (HIZLI ÜRÜNLER & SAYISAL TUŞ TAKIMI) -->
+            <div class="pos-card p-2.5 flex-grow-1 overflow-auto d-flex flex-column">
+                <!-- SEKME BAŞLIKLARI -->
+                <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                    <div class="d-flex gap-1.5">
+                        <button type="button" class="btn btn-sm btn-primary fw-extrabold px-3 py-1.5 d-flex align-items-center gap-1.5 active" id="tabBtnProducts" onclick="switchRightTab('products')">
+                            <i class="bi bi-grid-fill"></i> HIZLI ÜRÜNLER
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary fw-extrabold px-3 py-1.5 d-flex align-items-center gap-1.5" id="tabBtnNumpad" onclick="switchRightTab('numpad')">
+                            <i class="bi bi-calculator-fill"></i> SAYISAL TUŞ TAKIMI (NUMPAD)
+                        </button>
+                    </div>
+                    <span class="badge bg-slate-100 text-slate-900 border border-slate-300 px-2.5 py-1 fw-bold fs-8" id="hubStatusBadge">Katalog Modu</span>
+                </div>
+
+                <!-- 1. SEKME: HIZLI BARKODSUZ ÜRÜNLER GRID'İ -->
+                <div id="tabContentProducts" class="flex-grow-1 overflow-auto">
+                    <!-- KATEGORİ FİLTRE DOKUNMATİK PİLLERİ -->
+                    <div class="d-flex flex-wrap gap-1 mb-2 pb-1 border-bottom">
+                        <button type="button" class="btn btn-sm btn-primary fw-bold px-2.5 py-1 quick-cat-filter active" data-cat="all" onclick="filterQuickCategory('all', this)">Tümü</button>
+                        {% for cat in categories %}
+                        <button type="button" class="btn btn-sm btn-light border text-slate-800 fw-bold px-2.5 py-1 quick-cat-filter" data-cat="{{ cat.id }}" onclick="filterQuickCategory('{{ cat.id }}', this)">{{ cat.name }}</button>
+                        {% endfor %}
+                    </div>
+
+                    <!-- ÜRÜN KARTLARI GRİD'İ -->
+                    <div class="row g-2" id="quickProductsGrid">
+                        {% for p in quick_buttons %}
+                        <div class="col-6 col-sm-4 col-md-3 quick-product-item" data-cat-id="{{ p.category_id|default:'none' }}">
+                            <button class="btn quick-btn w-100 p-2 text-start" 
+                                    data-id="{{ p.id }}"
+                                    data-name="{{ p.name }}"
+                                    data-price="{{ p.sell_price|unlocalize }}"
+                                    data-vat="{{ p.vat_rate|unlocalize }}"
+                                    data-unit="{{ p.unit }}"
+                                    data-weighted="{{ p.is_weighted|yesno:'true,false' }}"
+                                    onclick="handleQuickButtonClick(this)">
+                                <span class="fw-bold fs-8 text-slate-900 text-truncate d-block w-100 mb-0.5">{{ p.name }}</span>
+                                <span class="text-primary fw-extrabold mono fs-7">{{ p.sell_price }} TL</span>
+                            </button>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-center text-slate-400 py-4">
+                            <i class="bi bi-box-seam fs-1 d-block mb-1 text-slate-300"></i>
+                            Hızlı buton tanımlı ürün bulunmuyor.
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 2. SEKME: DOKUNMATİK SAYISAL TUŞ TAKIMI (VIRTUAL NUMPAD) -->
+                <div id="tabContentNumpad" class="flex-grow-1 overflow-auto d-none">
+                    <!-- Hızlı Adet Çarpan Kısayolları -->
+                    <div class="row g-1.5 mb-2">
+                        <div class="col-3">
+                            <button class="btn btn-outline-primary w-100 py-2 fw-extrabold fs-7 shadow-xs" onclick="touchSetMultiplier(2)">2 Adet (2*)</button>
+                        </div>
+                        <div class="col-3">
+                            <button class="btn btn-outline-primary w-100 py-2 fw-extrabold fs-7 shadow-xs" onclick="touchSetMultiplier(3)">3 Adet (3*)</button>
+                        </div>
+                        <div class="col-3">
+                            <button class="btn btn-outline-primary w-100 py-2 fw-extrabold fs-7 shadow-xs" onclick="touchSetMultiplier(5)">5 Adet (5*)</button>
+                        </div>
+                        <div class="col-3">
+                            <button class="btn btn-outline-primary w-100 py-2 fw-extrabold fs-7 shadow-xs" onclick="touchSetMultiplier(10)">10 Adet (10*)</button>
+                        </div>
+                    </div>
+
+                    <!-- Büyük Tuş Takımı Izgarası -->
+                    <div class="row g-2">
+                        <!-- Sayılar (7-8-9, 4-5-6, 1-2-3, 0-00-,) -->
+                        <div class="col-8">
+                            <div class="row g-2">
+                                <div class="col-4"><button class="btn touch-key w-100" onclick="touchType('7')">7</button></div>
+                                <div class="col-4"><button class="btn touch-key w-100" onclick="touchType('8')">8</button></div>
+                                <div class="col-4"><button class="btn touch-key w-100" onclick="touchType('9')">9</button></div>
+                                <div class="col-4"><button class="btn touch-key w-100" onclick="touchType('4')">4</button></div>
+                                <div class="col-4"><button class="btn touch-key w-100" onclick="touchType('5')">5</button></div>
+                                <div class="col-4"><button class="btn touch-key w-100" onclick="touchType('6')">6</button></div>
+                                <div class="col-4"><button class="btn touch-key w-100" onclick="touchType('1')">1</button></div>
+                                <div class="col-4"><button class="btn touch-key w-100" onclick="touchType('2')">2</button></div>
+                                <div class="col-4"><button class="btn touch-key w-100" onclick="touchType('3')">3</button></div>
+                                <div class="col-4"><button class="btn touch-key w-100" onclick="touchType('0')">0</button></div>
+                                <div class="col-4"><button class="btn touch-key w-100" onclick="touchType('00')">00</button></div>
+                                <div class="col-4"><button class="btn touch-key w-100" onclick="touchType(',')">,</button></div>
+                            </div>
+                        </div>
+
+                        <!-- Fonksiyon Tuşları -->
+                        <div class="col-4">
+                            <div class="d-flex flex-column gap-2 h-100">
+                                <button class="btn touch-key touch-key-warning flex-fill fw-extrabold" onclick="touchType('*')" title="Adet Çarpanı (Örn: 5*)">
+                                    <i class="bi bi-asterisk fs-5 me-1"></i> ÇARPAN (*)
+                                </button>
+                                <button class="btn touch-key touch-key-danger flex-fill fw-extrabold" onclick="touchBackspace()" title="Son Karakteri Sil">
+                                    <i class="bi bi-backspace-fill fs-5 me-1"></i> SİL (⌫)
+                                </button>
+                                <button class="btn touch-key touch-key-secondary flex-fill fw-extrabold" onclick="touchClear()" title="Temizle">
+                                    <i class="bi bi-x-circle-fill fs-5 me-1"></i> TEMİZLE (C)
+                                </button>
+                                <button class="btn touch-key touch-key-success flex-fill fw-extrabold" onclick="submitBarcode()" title="Barkod veya Çarpanı Ekle">
+                                    <i class="bi bi-arrow-return-left fs-4 me-1"></i> EKLE (⏎)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BÜYÜK AKSİYON VE ÖDEME BUTONLARI (High Touch Contrast) -->
+            <div class="pos-card p-2.5">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <button class="btn btn-success action-btn-huge w-100" onclick="openCashModal()" id="btnCashModal">
+                            <i class="bi bi-cash-stack fs-2"></i>
+                            <div class="text-start leading-tight">
+                                <span class="d-block text-white-50 fw-bold" style="font-size:10px;">[F2 TUŞU]</span>
+                                <span>NAKİT ÖDEME</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-primary action-btn-huge w-100" onclick="completeCardSale()" id="btnCardSale">
+                            <i class="bi bi-credit-card-2-front-fill fs-2"></i>
+                            <div class="text-start leading-tight">
+                                <span class="d-block text-white-50 fw-bold" style="font-size:10px;">[F3 TUŞU]</span>
+                                <span>KART ÖDEME</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-warning w-100 py-2.5 fw-bold text-dark border-2" onclick="parkSale()" id="btnParkSale">
+                            <i class="bi bi-pause-circle-fill text-warning"></i> [F4] FİŞİ BEKLET (<span id="parkedCount">0</span>)
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-info w-100 py-2.5 fw-bold text-dark border-2" onclick="restoreParkedSale()" id="btnRestoreSale">
+                            <i class="bi bi-play-circle-fill text-info"></i> ASKIYI ÇAĞIR
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 1. DOKUNMATİK MİKTAR DEĞİŞTİRME MODALI -->
+<div class="modal fade" id="qtyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-slate-900 text-white py-3 px-4">
+                <h5 class="modal-title fw-extrabold d-flex align-items-center gap-2 fs-5 text-warning">
+                    <i class="bi bi-calculator"></i> DOKUNMATİK MİKTAR GİRİŞİ
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body p-3 bg-slate-50">
+                <div class="text-center mb-2">
+                    <strong id="qtyModalItemName" class="fs-6 text-slate-800 d-block text-truncate">Ürün Adı</strong>
+                </div>
+                <!-- Büyük Miktar Göstergesi -->
+                <div class="bg-white border-2 border-primary rounded-3 p-2.5 text-center mb-2.5 shadow-sm">
+                    <span class="fs-1 fw-extrabold text-primary mono" id="qtyModalValueDisplay">1</span>
+                    <span class="fs-4 fw-bold text-slate-500 ms-1" id="qtyModalUnitDisplay">Adet</span>
+                </div>
+                <!-- Hızlı Arttır/Azalt Kısayolları -->
+                <div class="row g-1.5 mb-2.5">
+                    <div class="col-3"><button class="btn btn-outline-secondary w-100 py-2 fw-extrabold fs-6" onclick="adjustModalQty(1)">+1</button></div>
+                    <div class="col-3"><button class="btn btn-outline-secondary w-100 py-2 fw-extrabold fs-6" onclick="adjustModalQty(2)">+2</button></div>
+                    <div class="col-3"><button class="btn btn-outline-secondary w-100 py-2 fw-extrabold fs-6" onclick="adjustModalQty(5)">+5</button></div>
+                    <div class="col-3"><button class="btn btn-outline-secondary w-100 py-2 fw-extrabold fs-6" onclick="adjustModalQty(10)">+10</button></div>
+                </div>
+                <!-- Dokunmatik Sayı Tuşları -->
+                <div class="row g-2 mb-2">
+                    <div class="col-4"><button class="btn touch-key w-100" onclick="typeModalQty('7')">7</button></div>
+                    <div class="col-4"><button class="btn touch-key w-100" onclick="typeModalQty('8')">8</button></div>
+                    <div class="col-4"><button class="btn touch-key w-100" onclick="typeModalQty('9')">9</button></div>
+                    <div class="col-4"><button class="btn touch-key w-100" onclick="typeModalQty('4')">4</button></div>
+                    <div class="col-4"><button class="btn touch-key w-100" onclick="typeModalQty('5')">5</button></div>
+                    <div class="col-4"><button class="btn touch-key w-100" onclick="typeModalQty('6')">6</button></div>
+                    <div class="col-4"><button class="btn touch-key w-100" onclick="typeModalQty('1')">1</button></div>
+                    <div class="col-4"><button class="btn touch-key w-100" onclick="typeModalQty('2')">2</button></div>
+                    <div class="col-4"><button class="btn touch-key w-100" onclick="typeModalQty('3')">3</button></div>
+                    <div class="col-4"><button class="btn touch-key w-100" onclick="typeModalQty('0')">0</button></div>
+                    <div class="col-4"><button class="btn touch-key w-100" onclick="typeModalQty('.')">,</button></div>
+                    <div class="col-4"><button class="btn touch-key touch-key-danger w-100" onclick="backspaceModalQty()"><i class="bi bi-backspace-fill"></i></button></div>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top p-2.5">
+                <button type="button" class="btn btn-outline-secondary fw-bold px-3 py-2.5" data-bs-dismiss="modal">Vazgeç</button>
+                <button type="button" class="btn btn-success flex-grow-1 fw-extrabold py-2.5 fs-6" onclick="confirmModalQty()">
+                    <i class="bi bi-check2-circle me-1"></i> MİKTARI ONAYLA (ENTER)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. NAKİT ÖDEME MODALI (TAM DOKUNMATİK NUMPAD & TÜM BANKNOTLAR) -->
+<div class="modal fade" id="cashModal" tabindex="-1" aria-labelledby="cashModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-slate-900 text-white py-3 px-4">
+                <h5 class="modal-title text-emerald-400 fw-extrabold d-flex align-items-center gap-2 fs-5" id="cashModalTitle">
+                    <i class="bi bi-cash-coin fs-3"></i> NAKİT ÖDEME ALMA
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body p-3 bg-slate-50">
+                <!-- Ödenecek Net Tutar & Alınan Nakit -->
+                <div class="row g-2 mb-2.5">
+                    <div class="col-6">
+                        <div class="text-center p-2 rounded-3 bg-white border shadow-xs h-100 d-flex flex-column justify-content-center">
+                            <small class="text-slate-500 d-block fw-bold fs-8" id="modalTotalLabel">ÖDENECEK TUTAR</small>
+                            <span class="fs-2 fw-extrabold text-primary mono" id="modalTotalDisplay">0.00 TL</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center p-2 rounded-3 bg-white border-2 border-success shadow-xs h-100 d-flex flex-column justify-content-center">
+                            <small class="text-slate-700 d-block fw-bold fs-8" id="modalCashLabel">ALINAN NAKİT</small>
+                            <input type="number" step="0.01" id="cashPaidInput" class="form-control form-control-sm bg-white text-slate-900 fs-2 fw-extrabold mono border-0 text-center p-0" 
+                                   placeholder="0.00" oninput="calculateChange()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hazır Banknot Butonları -->
+                <div class="row g-1.5 mb-2.5">
+                    <div class="col-3"><button class="btn touch-bill-btn w-100" onclick="setCashPreset(10)">10 TL</button></div>
+                    <div class="col-3"><button class="btn touch-bill-btn w-100" onclick="setCashPreset(20)">20 TL</button></div>
+                    <div class="col-3"><button class="btn touch-bill-btn w-100" onclick="setCashPreset(50)">50 TL</button></div>
+                    <div class="col-3"><button class="btn touch-bill-btn w-100" onclick="setCashPreset(100)">100 TL</button></div>
+                    <div class="col-3"><button class="btn touch-bill-btn w-100" onclick="setCashPreset(200)">200 TL</button></div>
+                    <div class="col-3"><button class="btn touch-bill-btn w-100" onclick="setCashPreset(500)">500 TL</button></div>
+                    <div class="col-3"><button class="btn btn-info text-white w-100 fw-bold fs-7" onclick="addCurrentCashBanknote(100)">+100 TL</button></div>
+                    <div class="col-3"><button class="btn btn-warning w-100 fw-extrabold fs-7 shadow-xs text-dark" onclick="setExactCash()">TAM PARA</button></div>
+                </div>
+
+                <!-- Dokunmatik Numpad (Nakit Modalı İçi) -->
+                <div class="row g-1.5 mb-2.5">
+                    <div class="col-3"><button class="btn touch-key w-100" onclick="touchTypeCash('7')">7</button></div>
+                    <div class="col-3"><button class="btn touch-key w-100" onclick="touchTypeCash('8')">8</button></div>
+                    <div class="col-3"><button class="btn touch-key w-100" onclick="touchTypeCash('9')">9</button></div>
+                    <div class="col-3"><button class="btn touch-key touch-key-danger w-100" onclick="touchBackspaceCash()"><i class="bi bi-backspace-fill"></i></button></div>
+                    <div class="col-3"><button class="btn touch-key w-100" onclick="touchTypeCash('4')">4</button></div>
+                    <div class="col-3"><button class="btn touch-key w-100" onclick="touchTypeCash('5')">5</button></div>
+                    <div class="col-3"><button class="btn touch-key w-100" onclick="touchTypeCash('6')">6</button></div>
+                    <div class="col-3"><button class="btn touch-key touch-key-secondary w-100" onclick="touchClearCash()">C</button></div>
+                    <div class="col-3"><button class="btn touch-key w-100" onclick="touchTypeCash('1')">1</button></div>
+                    <div class="col-3"><button class="btn touch-key w-100" onclick="touchTypeCash('2')">2</button></div>
+                    <div class="col-3"><button class="btn touch-key w-100" onclick="touchTypeCash('3')">3</button></div>
+                    <div class="col-3"><button class="btn touch-key w-100" onclick="touchTypeCash('00')">00</button></div>
+                    <div class="col-3"><button class="btn touch-key w-100" onclick="touchTypeCash('0')">0</button></div>
+                    <div class="col-3"><button class="btn touch-key w-100" onclick="touchTypeCash('.')">,</button></div>
+                    <div class="col-6"><button class="btn btn-warning w-100 h-100 fw-extrabold fs-6" onclick="setExactCash()">TAM PARA</button></div>
+                </div>
+
+                <!-- Para Üstü Göstergesi -->
+                <div class="p-2.5 rounded-3 text-center border shadow-xs" id="changeContainer" style="background-color: #dcfce7; border-color: #16a34a !important;">
+                    <small class="text-slate-600 d-block fw-bold fs-8">VERİLECEK PARA ÜSTÜ</small>
+                    <span class="fs-2 fw-extrabold mono text-success" id="modalChangeDisplay">0.00 TL</span>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top p-2.5">
+                <button type="button" class="btn btn-outline-secondary fw-bold px-3 py-2.5" data-bs-dismiss="modal">İptal (ESC)</button>
+                <button type="button" class="btn btn-success btn-lg flex-grow-1 fw-extrabold py-2.5" id="btnConfirmCashSale" onclick="submitCashSale()">
+                    <i class="bi bi-printer-fill me-1"></i> SATIŞI BİTİR & FİŞ BAS (ENTER)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- GİZLİ YAZDIRMA ALANI (TERMAL FİŞ) -->
+<div id="printFrameContainer" style="display: none;"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Fiş Durumu
+    let cart = [];
+    let parkedSales = [];
+    let cashModalInstance = null;
+    let qtyModalInstance = null;
+    let currentQtyEditIndex = -1;
+    let currentModalQty = 1;
+    let isReturnMode = false;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        cashModalInstance = new bootstrap.Modal(document.getElementById('cashModal'));
+        qtyModalInstance = new bootstrap.Modal(document.getElementById('qtyModal'));
+        const barcodeInput = document.getElementById('barcodeInput');
+        barcodeInput.focus();
+
+        // Sayfa neresine tıklanırsa tıklansın barkod inputuna odaklanmayı koru (modallar açık değilse)
+        document.addEventListener('click', function(e) {
+            const isCashOpen = document.getElementById('cashModal') && document.getElementById('cashModal').classList.contains('show');
+            const isQtyOpen = document.getElementById('qtyModal') && document.getElementById('qtyModal').classList.contains('show');
+            if (!isCashOpen && !isQtyOpen && 
+                e.target.tagName !== 'INPUT' && 
+                e.target.tagName !== 'BUTTON' && 
+                !e.target.closest('.touch-key') && 
+                !e.target.closest('.btn')) {
+                barcodeInput.focus();
+            }
+        });
+
+        // Klavye Kısayolları (F2: Nakit, F3: Kart, F4: Beklet, F8: İade Modu, Del: Temizle)
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F2') {
+                e.preventDefault();
+                openCashModal();
+            } else if (e.key === 'F3') {
+                e.preventDefault();
+                completeCardSale();
+            } else if (e.key === 'F4') {
+                e.preventDefault();
+                parkSale();
+            } else if (e.key === 'F8') {
+                e.preventDefault();
+                toggleReturnMode();
+            } else if (e.key === 'Delete') {
+                if (document.activeElement !== barcodeInput && document.activeElement !== document.getElementById('cashPaidInput')) {
+                    e.preventDefault();
+                    clearCart();
+                }
+            } else if (e.key === 'Enter') {
+                if (document.getElementById('cashModal') && document.getElementById('cashModal').classList.contains('show')) {
+                    e.preventDefault();
+                    submitCashSale();
+                } else if (document.getElementById('qtyModal') && document.getElementById('qtyModal').classList.contains('show')) {
+                    e.preventDefault();
+                    confirmModalQty();
+                }
+            }
+        });
+
+        // Barkod alanında Enter yakalama
+        barcodeInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitBarcode();
+            }
+        });
+    });
+
+    // Dokunmatik Sağ Sekme Değiştirici (Hızlı Ürünler / Sayısal Numpad)
+    function switchRightTab(tabName) {
+        const prodContent = document.getElementById('tabContentProducts');
+        const numContent = document.getElementById('tabContentNumpad');
+        const btnProd = document.getElementById('tabBtnProducts');
+        const btnNum = document.getElementById('tabBtnNumpad');
+        const badge = document.getElementById('hubStatusBadge');
+
+        if (tabName === 'numpad') {
+            prodContent.classList.add('d-none');
+            numContent.classList.remove('d-none');
+            btnProd.className = 'btn btn-sm btn-outline-secondary fw-extrabold px-3 py-1.5 d-flex align-items-center gap-1.5';
+            btnNum.className = 'btn btn-sm btn-primary fw-extrabold px-3 py-1.5 d-flex align-items-center gap-1.5 active';
+            if (badge) badge.innerText = 'Tuş Takımı Modu';
+        } else {
+            numContent.classList.add('d-none');
+            prodContent.classList.remove('d-none');
+            btnNum.className = 'btn btn-sm btn-outline-secondary fw-extrabold px-3 py-1.5 d-flex align-items-center gap-1.5';
+            btnProd.className = 'btn btn-sm btn-primary fw-extrabold px-3 py-1.5 d-flex align-items-center gap-1.5 active';
+            if (badge) badge.innerText = 'Hızlı Ürünler';
+        }
+    }
+
+    // Kategori Filtre Butonları
+    function filterQuickCategory(catId, btn) {
+        document.querySelectorAll('.quick-cat-filter').forEach(b => {
+            b.className = 'btn btn-sm btn-light border text-slate-800 fw-bold px-2.5 py-1 quick-cat-filter';
+        });
+        btn.className = 'btn btn-sm btn-primary fw-bold px-2.5 py-1 quick-cat-filter active';
+
+        const items = document.querySelectorAll('.quick-product-item');
+        items.forEach(it => {
+            if (catId === 'all' || it.dataset.catId === String(catId)) {
+                it.classList.remove('d-none');
+            } else {
+                it.classList.add('d-none');
+            }
+        });
+    }
+
+    // Dokunmatik Tuş Takımı Fonksiyonları (POS Barcode Girişi)
+    function touchType(char) {
+        const input = document.getElementById('barcodeInput');
+        input.value += char;
+        input.focus();
+    }
+
+    function touchBackspace() {
+        const input = document.getElementById('barcodeInput');
+        input.value = input.value.slice(0, -1);
+        input.focus();
+    }
+
+    function touchClear() {
+        const input = document.getElementById('barcodeInput');
+        input.value = '';
+        input.focus();
+    }
+
+    function touchSetMultiplier(m) {
+        const input = document.getElementById('barcodeInput');
+        input.value = m + '*';
+        input.focus();
+    }
+
+    // İade Modu Açma / Kapatma (F8)
+    function toggleReturnMode() {
+        isReturnMode = !isReturnMode;
+        const banner = document.getElementById('returnModeBanner');
+        const badge = document.getElementById('receiptNumberBadge');
+        const headerTitle = document.getElementById('cartHeaderTitle');
+        const btnToggle = document.getElementById('btnToggleReturn');
+        const totalCardTitle = document.getElementById('totalCardMainTitle');
+        const btnCash = document.getElementById('btnCashModal');
+        const btnCard = document.getElementById('btnCardSale');
+
+        if (isReturnMode) {
+            banner.classList.remove('d-none');
+            badge.className = 'badge bg-danger text-white border border-danger fw-bold';
+            badge.innerText = 'İADE FİŞİ';
+            headerTitle.innerText = 'MÜŞTERİDEN İADE ALMA';
+            headerTitle.classList.add('text-danger');
+            btnToggle.className = 'btn btn-danger text-white btn-sm fw-bold px-3 py-1 d-flex align-items-center gap-1.5 shadow-sm';
+            document.getElementById('returnBtnLabel').innerText = 'İade Modu Açık [F8]';
+            if (totalCardTitle) totalCardTitle.innerText = 'MÜŞTERİYE İADE EDİLECEK TUTAR';
+            btnCash.querySelector('span:last-child').innerText = 'NAKİT İADE ÖDE';
+            btnCard.querySelector('span:last-child').innerText = 'KARTA İADE YAP';
+        } else {
+            banner.classList.add('d-none');
+            badge.className = 'badge bg-primary-subtle text-primary border border-primary-subtle fw-bold';
+            badge.innerText = 'YENİ FİŞ';
+            headerTitle.innerText = 'GÜNCEL SATIŞ FİŞİ';
+            headerTitle.classList.remove('text-danger');
+            btnToggle.className = 'btn btn-outline-danger btn-sm fw-bold px-3 py-1 d-flex align-items-center gap-1.5';
+            document.getElementById('returnBtnLabel').innerText = 'İade Al [F8]';
+            if (totalCardTitle) totalCardTitle.innerText = 'ÖDENECEK TOPLAM TUTAR';
+            btnCash.querySelector('span:last-child').innerText = 'NAKİT ÖDEME';
+            btnCard.querySelector('span:last-child').innerText = 'KART ÖDEME';
+        }
+    }
+
+    // Barkod Sorgulama (Adet Çarpanı Desteği: 5*Barkod veya Normal Barkod)
+    function submitBarcode() {
+        const input = document.getElementById('barcodeInput');
+        const raw = input.value.trim();
+        if (!raw) return;
+
+        input.value = '';
+
+        // Çarpan / Adet desteği: örn. "5*8681830040491" veya "3x868..." veya "5 * 868..."
+        let multiplier = 1.0;
+        let barcode = raw;
+
+        if (raw.includes('*') || raw.toLowerCase().includes('x')) {
+            const parts = raw.split(/[*xX]/);
+            if (parts.length === 2) {
+                const parsedMult = parseFloat(parts[0].replace(',', '.'));
+                if (!isNaN(parsedMult) && parsedMult > 0 && parts[1].trim().length > 0) {
+                    multiplier = parsedMult;
+                    barcode = parts[1].trim();
+                }
+            }
+        }
+
+        fetch(`/api/barcode/?barcode=${encodeURIComponent(barcode)}`)
+            .then(res => {
+                if (!res.ok) throw new Error('Ürün bulunamadı.');
+                return res.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    const finalQty = (parseFloat(data.quantity) || 1.0) * multiplier;
+                    addToCart(data.product, finalQty, data.is_weighted_barcode);
+                    playBeep();
+                } else {
+                    alert('Barkodlu ürün bulunamadı: ' + barcode);
+                }
+            })
+            .catch(err => {
+                alert('Barkod okuma hatası: ' + err.message);
+            });
+    }
+
+    // Hızlı Buton Tıklama (Dataset ile güvenli ondalık okuma)
+    function handleQuickButtonClick(btn) {
+        const id = parseInt(btn.dataset.id, 10);
+        const name = btn.dataset.name;
+        const price = parseFloat(btn.dataset.price);
+        const vat = parseFloat(btn.dataset.vat);
+        const unit = btn.dataset.unit;
+        const isWeighted = btn.dataset.weighted === 'true';
+        addDirectProduct(id, name, price, vat, unit, isWeighted);
+    }
+
+    // Doğrudan Hızlı Ürün Ekleme
+    function addDirectProduct(id, name, price, vat, unit, isWeighted) {
+        addToCart({
+            id: id,
+            name: name,
+            sell_price: parseFloat(price),
+            vat_rate: parseFloat(vat),
+            unit: unit,
+            is_weighted: isWeighted
+        }, 1.0, isWeighted);
+        playBeep();
+    }
+
+    // Fişe Ürün Ekleme Mantığı (Aynı ürün eklendiğinde miktarı artırır, mükerrer satır açmaz!)
+    function addToCart(product, quantity = 1.0, isWeighted = false) {
+        if (!product) return;
+
+        const pid = parseInt(product.id || product.product_id || product.productId, 10);
+        const pBarcode = (product.barcode || '').toString().trim();
+        const addQty = parseFloat(quantity) || 1.0;
+
+        // Sepette aynı ürün var mı kontrol et (Önce Product ID, yoksa Barkod ile eşleştir)
+        const existing = cart.find(item => {
+            if (pid && parseInt(item.product_id, 10) === pid) return true;
+            if (pBarcode && item.barcode && item.barcode.trim() === pBarcode) return true;
+            return false;
+        });
+
+        if (existing) {
+            // Sepette var olan aynı ürünün miktarını topla
+            existing.quantity = Math.round((parseFloat(existing.quantity) + addQty) * 1000) / 1000;
+        } else {
+            // Yeni satır olarak sepete ekle
+            const unitPrice = parseFloat(product.sell_price !== undefined ? product.sell_price : (product.sellPrice !== undefined ? product.sellPrice : (product.price || 0)));
+            const vatRate = parseFloat(product.vat_rate !== undefined ? product.vat_rate : (product.vatRate !== undefined ? product.vatRate : 20));
+            const unit = product.unit || 'Adet';
+
+            cart.push({
+                product_id: pid,
+                name: product.name || 'İsimsiz Ürün',
+                barcode: pBarcode,
+                unit_price: unitPrice,
+                vat_rate: vatRate,
+                unit: unit,
+                quantity: Math.round(addQty * 1000) / 1000,
+                is_weighted: Boolean(product.is_weighted || product.isWeighted || isWeighted)
+            });
+        }
+        renderCart();
+    }
+
+    // Miktar Güncelleme (+ / -)
+    function changeQuantity(index, delta) {
+        if (!cart[index]) return;
+        cart[index].quantity = Math.round((parseFloat(cart[index].quantity) + delta) * 1000) / 1000;
+        if (cart[index].quantity <= 0) {
+            cart.splice(index, 1);
+        }
+        renderCart();
+    }
+
+    // Dokunmatik Miktar Düzenleme Modalı (Touch Quantity Modal)
+    function openQtyModal(index) {
+        if (!cart[index]) return;
+        currentQtyEditIndex = index;
+        currentModalQty = cart[index].quantity;
+        document.getElementById('qtyModalItemName').innerText = cart[index].name;
+        document.getElementById('qtyModalValueDisplay').innerText = currentModalQty;
+        document.getElementById('qtyModalUnitDisplay').innerText = cart[index].unit;
+        qtyModalInstance.show();
+    }
+
+    function adjustModalQty(delta) {
+        currentModalQty = Math.max(1, Math.round((currentModalQty + delta) * 1000) / 1000);
+        document.getElementById('qtyModalValueDisplay').innerText = currentModalQty;
+    }
+
+    function typeModalQty(char) {
+        let str = String(currentModalQty);
+        if (str === '0' || str === '1') str = '';
+        if (char === '.' && str.includes('.')) return;
+        str += char;
+        const val = parseFloat(str);
+        if (!isNaN(val)) {
+            currentModalQty = val;
+            document.getElementById('qtyModalValueDisplay').innerText = str;
+        }
+    }
+
+    function backspaceModalQty() {
+        let str = String(currentModalQty);
+        str = str.slice(0, -1);
+        if (!str || isNaN(parseFloat(str)) || parseFloat(str) <= 0) {
+            currentModalQty = 1;
+            document.getElementById('qtyModalValueDisplay').innerText = '1';
+        } else {
+            currentModalQty = parseFloat(str);
+            document.getElementById('qtyModalValueDisplay').innerText = str;
+        }
+    }
+
+    function confirmModalQty() {
+        if (currentQtyEditIndex >= 0 && cart[currentQtyEditIndex]) {
+            if (currentModalQty <= 0) {
+                cart.splice(currentQtyEditIndex, 1);
+            } else {
+                cart[currentQtyEditIndex].quantity = currentModalQty;
+            }
+            renderCart();
+        }
+        qtyModalInstance.hide();
+    }
+
+    // Satır Silme
+    function removeRow(index) {
+        cart.splice(index, 1);
+        renderCart();
+    }
+
+    // Fişi Temizle
+    function clearCart() {
+        if (cart.length > 0 && confirm('Fişi tamamen iptal etmek istediğinize emin misiniz?')) {
+            cart = [];
+            renderCart();
+        }
+    }
+
+    // Fişi Ekrana Çizme (Render - Dokunmatik Dostu Yüksek Kontrollü Satırlar)
+    function renderCart() {
+        const tbody = document.getElementById('cartTableBody');
+        tbody.innerHTML = '';
+
+        if (cart.length === 0) {
+            tbody.innerHTML = `
+                <tr id="emptyCartRow">
+                    <td colspan="6" class="text-center py-5 text-slate-400">
+                        <i class="bi bi-upc-scan fs-1 d-block mb-2 text-primary opacity-50"></i>
+                        <span class="fs-6 fw-bold text-slate-600">Henüz ürün okutulmadı.</span><br>
+                        <small class="text-slate-400">Barkod okutunuz veya sağdaki hızlı butonları kullanınız.</small>
+                    </td>
+                </tr>
+            `;
+            updateTotals(0, 0, 0);
+            document.getElementById('itemCountDisplay').innerText = '0';
+            return;
+        }
+
+        let subtotalNet = 0;
+        let totalVat = 0;
+        let grandTotal = 0;
+        let totalItems = 0;
+
+        cart.forEach((item, index) => {
+            // Perakende Standardı: Raf Satış Fiyatı (unit_price) KDV DAHİLDİR!
+            const lineTotal = item.quantity * item.unit_price;
+            let lineSubtotal = lineTotal;
+            let lineVat = 0;
+            if (item.vat_rate > 0) {
+                lineSubtotal = lineTotal / (1.0 + (item.vat_rate / 100.0));
+                lineVat = lineTotal - lineSubtotal;
+            }
+
+            subtotalNet += lineSubtotal;
+            totalVat += lineVat;
+            grandTotal += lineTotal;
+            totalItems += (item.unit === 'Adet' ? item.quantity : 1);
+
+            const row = document.createElement('tr');
+            row.style.minHeight = '52px';
+            row.innerHTML = `
+                <td class="text-slate-400 fw-bold fs-8">${index + 1}</td>
+                <td>
+                    <strong class="text-slate-900 d-block fs-7 text-truncate" style="max-width: 140px;" title="${item.name}">${item.name}</strong>
+                    <small class="text-slate-500 font-monospace fs-8">${item.barcode || '-'}</small>
+                </td>
+                <td class="text-center">
+                    <div class="d-flex align-items-center justify-content-center gap-1">
+                        <button class="btn btn-outline-danger touch-cart-btn fw-bold" onclick="changeQuantity(${index}, -1)" title="1 Azalt">
+                            <i class="bi bi-dash-lg"></i>
+                        </button>
+                        <button class="btn btn-light touch-qty-badge" onclick="openQtyModal(${index})" title="Miktarı değiştirmek için tıklayın">
+                            ${item.quantity} ${item.unit}
+                        </button>
+                        <button class="btn btn-outline-success touch-cart-btn fw-bold" onclick="changeQuantity(${index}, 1)" title="1 Artır">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    </div>
+                </td>
+                <td class="text-end mono fw-bold text-slate-700 fs-8">${item.unit_price.toFixed(2)} TL</td>
+                <td class="text-end mono fw-extrabold text-primary fs-7">${lineTotal.toFixed(2)} TL</td>
+                <td class="text-center">
+                    <button class="btn btn-outline-danger touch-cart-btn" onclick="removeRow(${index})" title="Satırı Sil">
+                        <i class="bi bi-trash3-fill"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        updateTotals(subtotalNet, totalVat, grandTotal);
+        document.getElementById('itemCountDisplay').innerText = totalItems;
+    }
+
+    function updateTotals(subtotal, totalVat, grandTotal) {
+        document.getElementById('subTotalDisplay').innerText = subtotal.toFixed(2) + ' TL';
+        document.getElementById('vatTotalDisplay').innerText = totalVat.toFixed(2) + ' TL';
+        document.getElementById('grandTotalDisplay').innerText = grandTotal.toFixed(2);
+    }
+
+    function getGrandTotal() {
+        let total = 0;
+        cart.forEach(item => {
+            total += (item.quantity * item.unit_price);
+        });
+        return Math.max(0, total);
+    }
+
+    // Fiş Bekletme (Park Sale)
+    function parkSale() {
+        if (cart.length === 0) return;
+        parkedSales.push([...cart]);
+        cart = [];
+        renderCart();
+        document.getElementById('parkedCount').innerText = parkedSales.length;
+        alert('Fiş askıya alındı.');
+    }
+
+    function restoreParkedSale() {
+        if (parkedSales.length === 0) {
+            alert('Askıda bekleyen fiş yok.');
+            return;
+        }
+        if (cart.length > 0 && !confirm('Mevcut fiş silinecek ve askıdaki fiş yüklenecek. Onaylıyor musunuz?')) {
+            return;
+        }
+        cart = parkedSales.pop();
+        renderCart();
+        document.getElementById('parkedCount').innerText = parkedSales.length;
+    }
+
+    // Nakit Ödeme Modalı
+    function openCashModal() {
+        if (cart.length === 0) {
+            alert('Fişte ürün bulunmuyor.');
+            return;
+        }
+        const total = getGrandTotal();
+        const modalTitle = document.getElementById('cashModalTitle');
+        const modalTotalLabel = document.getElementById('modalTotalLabel');
+        const modalCashLabel = document.getElementById('modalCashLabel');
+        const confirmBtn = document.getElementById('btnConfirmCashSale');
+
+        if (isReturnMode) {
+            if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-arrow-repeat fs-3 text-warning"></i> MÜŞTERİYE NAKİT İADE ÖDEMESİ';
+            if (modalTotalLabel) modalTotalLabel.innerText = 'MÜŞTERİYE ÖDENECEK İADE TUTARI';
+            if (modalCashLabel) modalCashLabel.innerText = 'KASADAN ÇIKACAK İADE TUTARI';
+            if (confirmBtn) {
+                confirmBtn.innerHTML = '<i class="bi bi-printer-fill me-1"></i> İADEYİ ONAYLA & GİDER FİŞİ BAS (ENTER)';
+                confirmBtn.className = 'btn btn-danger btn-lg flex-grow-1 fw-extrabold py-2.5';
+            }
+        } else {
+            if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-cash-coin fs-3"></i> NAKİT ÖDEME ALMA';
+            if (modalTotalLabel) modalTotalLabel.innerText = 'ÖDENECEK NET TUTAR';
+            if (modalCashLabel) modalCashLabel.innerText = 'ALINAN NAKİT';
+            if (confirmBtn) {
+                confirmBtn.innerHTML = '<i class="bi bi-printer-fill me-1"></i> SATIŞI BİTİR & FİŞ BAS (ENTER)';
+                confirmBtn.className = 'btn btn-success btn-lg flex-grow-1 fw-extrabold py-2.5';
+            }
+        }
+
+        document.getElementById('modalTotalDisplay').innerText = total.toFixed(2) + ' TL';
+        const paidInput = document.getElementById('cashPaidInput');
+        paidInput.value = total.toFixed(2);
+        calculateChange();
+        cashModalInstance.show();
+        setTimeout(() => paidInput.select(), 400);
+    }
+
+    function setCashPreset(amount) {
+        document.getElementById('cashPaidInput').value = amount.toFixed(2);
+        calculateChange();
+    }
+
+    function addCurrentCashBanknote(amount) {
+        const input = document.getElementById('cashPaidInput');
+        const current = parseFloat(input.value) || 0;
+        input.value = (current + amount).toFixed(2);
+        calculateChange();
+    }
+
+    function touchTypeCash(char) {
+        const input = document.getElementById('cashPaidInput');
+        let val = input.value || '';
+        if (val === '0.00' || val === '0') val = '';
+        if (char === '.' && val.includes('.')) return;
+        val += char;
+        input.value = val;
+        calculateChange();
+    }
+
+    function touchBackspaceCash() {
+        const input = document.getElementById('cashPaidInput');
+        let val = input.value || '';
+        val = val.slice(0, -1);
+        input.value = val;
+        calculateChange();
+    }
+
+    function touchClearCash() {
+        const input = document.getElementById('cashPaidInput');
+        input.value = '';
+        calculateChange();
+    }
+
+    function setExactCash() {
+        document.getElementById('cashPaidInput').value = getGrandTotal().toFixed(2);
+        calculateChange();
+    }
+
+    function calculateChange() {
+        const total = getGrandTotal();
+        const paid = parseFloat(document.getElementById('cashPaidInput').value) || 0;
+        const change = paid - total;
+        const changeDisplay = document.getElementById('modalChangeDisplay');
+        const container = document.getElementById('changeContainer');
+        const btn = document.getElementById('btnConfirmCashSale');
+
+        if (isReturnMode) {
+            changeDisplay.innerText = '0.00 TL (TAM İADE)';
+            changeDisplay.className = 'fs-1 fw-extrabold mono text-danger';
+            container.style.backgroundColor = '#fef2f2';
+            container.style.borderColor = '#ef4444';
+            btn.disabled = false;
+            return;
+        }
+
+        if (change >= 0) {
+            changeDisplay.innerText = change.toFixed(2) + ' TL';
+            changeDisplay.className = 'fs-1 fw-extrabold mono text-success';
+            container.style.backgroundColor = '#dcfce7';
+            container.style.borderColor = '#16a34a';
+            btn.disabled = false;
+        } else {
+            changeDisplay.innerText = 'EKSİK PARASI VAR';
+            changeDisplay.className = 'fs-3 fw-bold text-danger';
+            container.style.backgroundColor = '#fee2e2';
+            container.style.borderColor = '#dc2626';
+            btn.disabled = true;
+        }
+    }
+
+    // Satışı Tamamlama (Nakit)
+    function submitCashSale() {
+        const total = getGrandTotal();
+        const paid = parseFloat(document.getElementById('cashPaidInput').value) || 0;
+        if (!isReturnMode && paid < total) {
+            alert('Alınan nakit ödenecek tutardan az olamaz!');
+            return;
+        }
+        processSaleApi('NAKIT', paid);
+    }
+
+    // Satışı Tamamlama (Kart)
+    function completeCardSale() {
+        if (cart.length === 0) {
+            alert('Fişte ürün bulunmuyor.');
+            return;
+        }
+        const total = getGrandTotal();
+        const actionName = isReturnMode ? 'Kredi Kartı İADESİNİ' : 'Kredi Kartı satışını';
+        if (confirm(`Toplam ${total.toFixed(2)} TL tutarındaki ${actionName} onaylıyor musunuz?`)) {
+            processSaleApi('KART', total);
+        }
+    }
+
+    // Backend API ile Satışı veya İadeyi Kaydetme
+    function processSaleApi(paymentType, cashPaid) {
+        const payload = {
+            items: cart.map(item => ({
+                product_id: item.product_id,
+                quantity: item.quantity,
+                unit_price: item.unit_price
+            })),
+            payment_type: paymentType,
+            cash_paid: cashPaid,
+            discount_amount: 0.00,
+            is_return: isReturnMode
+        };
+
+        fetch('/api/sale/process/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                if (cashModalInstance) cashModalInstance.hide();
+                // Termal Fiş Yazdırma
+                printReceipt(data.receipt_number);
+                
+                if (isReturnMode) {
+                    alert('Müşteri ürün iadesi başarıyla alındı ve ürünler stoğa geri eklendi!\nİade Fişi: ' + data.receipt_number);
+                    toggleReturnMode(); // Satış moduna geri dön
+                }
+
+                cart = [];
+                renderCart();
+                document.getElementById('barcodeInput').focus();
+            } else {
+                alert('İşlem hatası: ' + data.message);
+            }
+        })
+        .catch(err => {
+            alert('Sunucu iletişim hatası: ' + err.message);
+        });
+    }
+
+    // Termal Fiş Yazdırıcı
+    function printReceipt(receiptNumber) {
+        const printUrl = `/receipt/${receiptNumber}/`;
+        const printWindow = window.open(printUrl, '_blank', 'width=400,height=600');
+        if (printWindow) {
+            printWindow.focus();
+        }
+    }
+
+    // Bip Sesi Simülasyonu
+    function playBeep() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 1200;
+            gain.gain.value = 0.1;
+            osc.start();
+            setTimeout(() => { osc.stop(); ctx.close(); }, 80);
+        } catch(e) {}
+    }
+</script>
+{% endblock %}

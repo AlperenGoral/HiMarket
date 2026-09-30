@@ -1,0 +1,6 @@
+@HiMarket.API_HostAddress = http://localhost:5083
+
+GET {{HiMarket.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Fiş #{{ sale.receipt_number }}</title>
+    <style>
+        @page {
+            size: 80mm auto;
+            margin: 0;
+        }
+        body {
+            width: 78mm;
+            margin: 0 auto;
+            padding: 5mm;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            line-height: 1.2;
+            color: #000000;
+            background-color: #ffffff;
+        }
+        .text-center { text-align: center; }
+        .text-end { text-align: right; }
+        .text-start { text-align: left; }
+        .fw-bold { font-weight: bold; }
+        .dashed-line {
+            border-top: 1px dashed #000;
+            margin: 5px 0;
+        }
+        .item-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .item-table td {
+            padding: 2px 0;
+            vertical-align: top;
+        }
+        .receipt-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+        @media print {
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="text-center">
+        <div class="receipt-title">Hİ MARKET</div>
+        <div>MERKEZ MAĞAZASI</div>
+        {% if sale.is_return %}
+        <div style="font-weight: bold; font-size: 14px; margin-top: 4px;">*** MÜŞTERİ İADE FİŞİ ***</div>
+        <div style="font-size: 10px;">(GİDER PUSULASI)</div>
+        {% else %}
+        <div>SATIŞ BİLGİ FİŞİ</div>
+        {% endif %}
+        <div>KASA: {{ sale.shift.cash_register.name|default:"KASA 1" }}</div>
+        <div class="dashed-line"></div>
+    </div>
+
+    <div>
+        <div><strong>Fiş No:</strong> {{ sale.receipt_number }}</div>
+        <div><strong>Tarih:</strong> {{ sale.created_at|date:"d.m.Y H:i:s" }}</div>
+        <div><strong>Kasiyer:</strong> {{ sale.cashier.get_full_name|default:sale.cashier.username|default:"Kasiyer" }}</div>
+        <div class="dashed-line"></div>
+    </div>
+
+    <table class="item-table">
+        <thead>
+            <tr class="fw-bold">
+                <td>Ürün</td>
+                <td class="text-center">Mkt</td>
+                <td class="text-end">Tutar</td>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in sale.items.all %}
+            <tr>
+                <td colspan="3" class="fw-bold">{{ item.product_name }}</td>
+            </tr>
+            <tr>
+                <td style="padding-left: 10px; font-size: 10px; color: #444;">
+                    {{ item.barcode }}
+                </td>
+                <td class="text-center font-monospace">
+                    {{ item.quantity }} x {{ item.unit_price }}
+                </td>
+                <td class="text-end fw-bold">
+                    {{ item.total_price }} TL
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="dashed-line"></div>
+
+    <table class="item-table">
+        <tr>
+            <td>KDV HARİÇ MATRAH:</td>
+            <td class="text-end">{{ sale.subtotal }} TL</td>
+        </tr>
+        <tr>
+            <td>HESAPLANAN KDV:</td>
+            <td class="text-end">{{ sale.total_vat }} TL</td>
+        </tr>
+        {% if sale.discount_amount > 0 %}
+        <tr>
+            <td>İSKONTO:</td>
+            <td class="text-end">-{{ sale.discount_amount }} TL</td>
+        </tr>
+        {% endif %}
+        <tr class="fw-bold" style="font-size: 14px;">
+            <td>GENEL TOPLAM (KDV DAHİL):</td>
+            <td class="text-end">{{ sale.total_amount }} TL</td>
+        </tr>
+    </table>
+
+    <div class="dashed-line"></div>
+
+    <table class="item-table">
+        <tr>
+            <td>ÖDEME TÜRÜ:</td>
+            <td class="text-end fw-bold">{{ sale.get_payment_type_display }}</td>
+        </tr>
+        {% if sale.payment_type == 'NAKIT' %}
+        <tr>
+            <td>ALINAN NAKİT:</td>
+            <td class="text-end">{{ sale.cash_paid }} TL</td>
+        </tr>
+        <tr class="fw-bold">
+            <td>PARA ÜSTÜ:</td>
+            <td class="text-end">{{ sale.change_given }} TL</td>
+        </tr>
+        {% endif %}
+    </table>
+
+    <div class="dashed-line"></div>
+
+    <div class="text-center" style="margin-top: 10px; font-size: 10px;">
+        <div>*** BİZİ TERCİH ETTİĞİNİZ İÇİN TEŞEKKÜR EDERİZ ***</div>
+        <div>Mali Değeri Yoktur - Bilgi Fişidir</div>
+    </div>
+
+    <div class="no-print text-center" style="margin-top: 20px;">
+        <button onclick="window.print()" style="padding: 10px 20px; font-weight: bold; cursor: pointer; background: #000; color: #fff; border-radius: 5px;">
+            YAZDIR (Ctrl+P)
+        </button>
+    </div>
+
+    <script>
+        // Sayfa açıldığında otomatik yazdırma penceresi gelsin
+        window.onload = function() {
+            setTimeout(() => {
+                window.print();
+            }, 300);
+        };
+    </script>
+</body>
+</html>

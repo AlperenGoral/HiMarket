@@ -1,0 +1,195 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block title %}{% if cl.formset and cl.formset.errors %}{% translate "Error:" %} {% endif %}{{ cl.opts.verbose_name_plural|capfirst }} | Hİ MARKET Yönetim Paneli{% endblock %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static "admin/css/changelists.css" %}">
+  {% if cl.formset %}
+    <link rel="stylesheet" href="{% static "admin/css/widgets.css" %}">
+    <link rel="stylesheet" href="{% static "admin/css/forms.css" %}">
+  {% endif %}
+  {% if cl.formset or action_form %}
+    <script src="{% url 'admin:jsi18n' %}"></script>
+  {% endif %}
+  {{ media.css }}
+{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  {{ media.js }}
+  <script src="{% static 'admin/js/filters.js' %}" defer></script>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-list{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block object-tools %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- SAYFA BAŞLIĞI VE HİYERARŞİK BUTONLAR -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-secondary text-white fs-8 px-2 py-0.5 rounded-1">SİSTEM VERİLERİ</span>
+                <span class="text-secondary fs-8 fw-semibold">/ {{ cl.opts.verbose_name_plural|capfirst }}</span>
+            </div>
+            <h1 class="h3 fw-bold text-slate-900 mb-0 d-flex align-items-center gap-2">
+                {% if cl.opts.model_name == 'category' %}
+                    <i class="bi bi-tags-fill text-warning"></i> ÜRÜN KATEGORİLERİ
+                {% elif cl.opts.model_name == 'sale' %}
+                    <i class="bi bi-receipt text-success"></i> SATIŞ FİŞLERİ VE İADELER
+                {% elif cl.opts.model_name == 'shift' %}
+                    <i class="bi bi-clock-history text-primary"></i> KASA VARDİYALARI & DEVİRLER
+                {% elif cl.opts.model_name == 'user' %}
+                    <i class="bi bi-people-fill text-info"></i> SİSTEM KULLANICI & KASİYERLERİ
+                {% elif cl.opts.model_name == 'cashregister' %}
+                    <i class="bi bi-display text-primary"></i> KASA TERMİNALLERİ
+                {% else %}
+                    <i class="bi bi-database-fill text-secondary"></i> {{ cl.opts.verbose_name_plural|upper }}
+                {% endif %}
+            </h1>
+            <span class="text-secondary small fw-medium">
+                {% if cl.opts.model_name == 'category' %}
+                    Market reyon ve ürün kategorilerini düzenleyin, sıralama ve aktiflik durumlarını belirleyin.
+                {% elif cl.opts.model_name == 'sale' %}
+                    Kasadan kesilen tüm satış fişleri, tahsilat yöntemleri, iade ve iptal hareketleri.
+                {% elif cl.opts.model_name == 'shift' %}
+                    Kasiyer vardiya açılış/kapanış saatleri, nakit devirleri ve kasa farkı (Z Raporu) takibi.
+                {% elif cl.opts.model_name == 'user' %}
+                    Yönetici, müdür ve kasiyer hesapları, şifre ve sistem erişim yetkileri.
+                {% elif cl.opts.model_name == 'cashregister' %}
+                    Fiziksel POS kasa terminalleri ve cihaz tanımlamaları.
+                {% else %}
+                    Sistem veri tablosu yönetimi ve kayıt denetimi.
+                {% endif %}
+            </span>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            {% if cl.opts.model_name == 'category' %}
+                <a href="{% url 'product_catalog_view' %}" class="btn btn-sm btn-outline-secondary fw-bold px-3 py-2 d-flex align-items-center gap-1.5">
+                    <i class="bi bi-grid-3x3-gap-fill text-warning"></i> Ürün Kataloğu
+                </a>
+            {% elif cl.opts.model_name == 'sale' %}
+                <a href="{% url 'z_report_view' %}" target="_blank" class="btn btn-sm btn-outline-danger fw-bold px-3 py-2 d-flex align-items-center gap-1.5">
+                    <i class="bi bi-file-earmark-bar-graph-fill"></i> Gün Sonu (Z Raporu)
+                </a>
+                <a href="{% url 'pos_screen' %}" target="_blank" class="btn btn-sm btn-success text-white fw-bold px-3 py-2 d-flex align-items-center gap-1.5 shadow-xs">
+                    <i class="bi bi-cart4"></i> Canlı Kasa Satış
+                </a>
+            {% elif cl.opts.model_name == 'shift' %}
+                <a href="{% url 'z_report_view' %}" target="_blank" class="btn btn-sm btn-outline-danger fw-bold px-3 py-2 d-flex align-items-center gap-1.5">
+                    <i class="bi bi-printer-fill"></i> Z Raporu Al
+                </a>
+            {% endif %}
+
+            {% if has_add_permission %}
+                <a href="{% url cl.opts|admin_urlname:'add' %}{% if is_popup %}?_popup=1{% endif %}" class="btn btn-sm btn-primary text-white fw-bold shadow-xs px-3 py-2 d-flex align-items-center gap-1.5">
+                    <i class="bi bi-plus-lg"></i> Yeni {{ cl.opts.verbose_name|capfirst }} Ekle
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- HATA VE UYARI BİLDİRİMLERİ -->
+    {% if cl.formset and cl.formset.errors %}
+        <div class="alert alert-danger py-2 px-3 rounded-2 shadow-xs mb-3 fs-7" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i> Lütfen tablodaki hataları düzeltiniz.
+            {{ cl.formset.non_form_errors }}
+        </div>
+    {% endif %}
+
+    <!-- ARAMA VE SÜZGEÇLER KARTI (YATAY MODERN DÜZEN) -->
+    <div class="tabler-card mb-3 p-3 bg-white border rounded-2 shadow-xs">
+        <div class="row g-2 align-items-center">
+            <!-- ARAMA ÇUBUĞU (VARSA) -->
+            <div class="col-12 {% if cl.has_filters %}col-lg-7{% else %}col-12{% endif %}">
+                {% block search %}{% search_form cl %}{% endblock %}
+            </div>
+
+            <!-- SÜZGEÇ AÇMA/KAPAMA VE TEMİZLEME BUTONLARI -->
+            {% if cl.has_filters %}
+            <div class="col-12 col-lg-5 d-flex justify-content-lg-end align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary fw-bold px-3 py-1.5 d-flex align-items-center gap-1.5" data-bs-toggle="collapse" data-bs-target="#himarketFilterPanel" aria-expanded="true" aria-controls="himarketFilterPanel">
+                    <i class="bi bi-funnel-fill text-primary"></i> 
+                    <span>Süzgeçler & Filtreler</span>
+                    {% if cl.has_active_filters %}
+                        <span class="badge bg-primary text-white ms-1">Aktif</span>
+                    {% endif %}
+                </button>
+                {% if cl.has_active_filters %}
+                <a href="{{ cl.clear_all_filters_qs }}" class="btn btn-sm btn-outline-danger fw-bold px-2.5 py-1.5 d-flex align-items-center gap-1" title="Tüm süzgeçleri sıfırla">
+                    <i class="bi bi-x-circle-fill"></i> Filtreleri Temizle
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- MODERN VE YATAY SÜZGEÇ GRUPLARI (SAĞ TARAFI SIKIŞTIRMAYAN YENİ YAPI) -->
+        {% if cl.has_filters %}
+        <div class="collapse show mt-3 pt-3 border-top" id="himarketFilterPanel">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="fs-8 fw-bold text-slate-700 text-uppercase d-flex align-items-center gap-1.5">
+                    <i class="bi bi-sliders2 text-primary"></i>
+                    <span>Veri Süzme Kriterleri</span>
+                </div>
+                {% if cl.has_active_filters %}
+                <span class="text-danger fs-8 fw-semibold d-flex align-items-center gap-1">
+                    <i class="bi bi-info-circle-fill"></i> Filtrelenmiş sonuçlar görüntüleniyor
+                </span>
+                {% endif %}
+            </div>
+            <div class="row g-2.5">
+                {% for spec in cl.filter_specs %}
+                <div class="col-12 col-md-6 col-xl-3">
+                    {% admin_list_filter cl spec %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- TARİH HİYERARŞİSİ (VARSA) -->
+    {% block date_hierarchy %}
+        {% if cl.date_hierarchy %}
+        <div class="tabler-card mb-3 p-2.5 bg-white border rounded-2 shadow-xs">
+            {% date_hierarchy cl %}
+        </div>
+        {% endif %}
+    {% endblock %}
+
+    <!-- VERİ TABLOSU KARTI (TAM GENİŞLİK %100) -->
+    <div class="tabler-card p-0 bg-white border rounded-2 shadow-xs overflow-hidden">
+        <form id="changelist-form" method="post"{% if cl.formset and cl.formset.is_multipart %} enctype="multipart/form-data"{% endif %} novalidate>
+            {% csrf_token %}
+            {% if cl.formset %}
+                <div>{{ cl.formset.management_form }}</div>
+            {% endif %}
+
+            <!-- SEÇİLENLER İÇİN TOPLU EYLEMLER (ACTIONS TOOLBAR) -->
+            {% block result_list %}
+                {% if action_form and actions_on_top and cl.show_admin_actions %}{% admin_actions %}{% endif %}
+                <div class="table-responsive">
+                    {% result_list cl %}
+                </div>
+                {% if action_form and actions_on_bottom and cl.show_admin_actions %}{% admin_actions %}{% endif %}
+            {% endblock %}
+
+            <!-- SAYFALAMA VE KAYDET (PAGINATION) -->
+            {% block pagination %}
+                <div class="changelist-footer bg-light border-top p-2.5 d-flex flex-wrap justify-content-between align-items-center">
+                    {% pagination cl %}
+                    {% if cl.formset and cl.result_count %}
+                        <input type="submit" name="_save" class="btn btn-sm btn-primary fw-bold text-white px-3 py-1.5" value="{% translate 'Save' %}">
+                    {% endif %}
+                </div>
+            {% endblock %}
+        </form>
+    </div>
+</div>
+{% endblock %}

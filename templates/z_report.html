@@ -1,0 +1,572 @@
+{% extends 'base.html' %}
+{% load l10n %}
+
+{% block title %}Hİ MARKET - Gün Sonu Z Raporu{% endblock %}
+
+{% block extra_css %}
+<style>
+    .z-report-card {
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 14px;
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+    }
+    .metric-box {
+        border-radius: 10px;
+        padding: 16px;
+        text-align: center;
+        border: 1px solid #e2e8f0;
+        transition: transform 0.15s ease;
+    }
+    .metric-label {
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+        display: block;
+    }
+    .metric-val {
+        font-family: 'Roboto Mono', monospace;
+        font-size: 1.6rem;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+    .reconciliation-card {
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+    }
+    @media print {
+        header, .no-print, .btn, .modal, .dropdown {
+            display: none !important;
+        }
+        body {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            padding: 0 !important;
+        }
+        .z-report-card {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+        .metric-box {
+            border: 1px solid #000 !important;
+        }
+        .reconciliation-card {
+            background: #ffffff !important;
+            border: 1px solid #000 !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-3">
+    <div class="col-12 col-xl-9 col-lg-10">
+        
+        <!-- VARDİYA SEÇİCİ VE ÜST KONTROL ÇUBUĞU (NO-PRINT) -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 no-print">
+            <a href="{% url 'pos_screen' %}" class="btn btn-outline-secondary fw-bold px-3 py-2 d-flex align-items-center gap-2">
+                <i class="bi bi-arrow-left"></i> Kasa Satış Ekranına Dön
+            </a>
+
+            <div class="d-flex align-items-center gap-2">
+                <label class="form-label mb-0 fw-bold small text-secondary">Vardiya / Rapor Seç:</label>
+                <select class="form-select form-select-sm fw-bold border-secondary-subtle" style="min-width: 280px;" onchange="window.location.href='?shift_id=' + this.value">
+                    {% for s in all_shifts %}
+                    <option value="{{ s.id }}" {% if s.id == shift.id %}selected{% endif %}>
+                        Vardiya #{{ s.id }} ({{ s.opened_at|date:"d.m.Y H:i" }}) - {% if s.is_closed %}KAPALI{% else %}AÇIK (AKTİF){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- ANA Z RAPORU KARTI -->
+        <div class="z-report-card p-4 p-md-5">
+            <!-- RAPOR BAŞLIĞI -->
+            <div class="d-flex flex-wrap justify-content-between align-items-start border-bottom pb-4 mb-4 gap-3">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="fs-3 text-primary"><i class="bi bi-receipt"></i></span>
+                        <h2 class="h3 fw-extrabold text-slate-900 mb-0">GÜN SONU KASA Z RAPORU</h2>
+                    </div>
+                    <div class="text-secondary small fw-medium mt-1">
+                        <strong>{{ register.name }}</strong> (Kod: {{ register.register_code }}) | 
+                        Kasiyer: <strong>{{ shift.cashier.get_full_name|default:shift.cashier.username|default:"Varsayılan Kasiyer" }}</strong>
+                    </div>
+                    <div class="text-muted small mt-1 font-monospace">
+                        Açılış: <strong>{{ shift.opened_at|date:"d.m.Y H:i" }}</strong> 
+                        {% if shift.closed_at %}
+                        | Kapanış: <strong>{{ shift.closed_at|date:"d.m.Y H:i" }}</strong>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="text-md-end">
+                    {% if shift.is_closed %}
+                    <span class="badge bg-danger text-white fs-6 px-3 py-2 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5">
+                        <i class="bi bi-lock-fill"></i> VARDİYA KAPALI (Z ALINDI)
+                    </span>
+                    <div class="text-muted small mt-1 font-monospace">Rapor No: #Z-{{ shift.id }}</div>
+                    {% else %}
+                    <span class="badge bg-success text-white fs-6 px-3 py-2 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5">
+                        <i class="bi bi-unlock-fill"></i> VARDİYA AÇIK (DEVAM EDİYOR)
+                    </span>
+                    <div class="text-muted small mt-1 font-monospace">Aktif Vardiya #{{ shift.id }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- CİRO VE SATIŞ ÖZET KARTLARI -->
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-md-3">
+                    <div class="metric-box bg-slate-50 border-slate-200">
+                        <span class="metric-label text-slate-600"><i class="bi bi-cash me-1"></i> Açılış Devir</span>
+                        <div class="metric-val text-slate-800">₺{{ shift.opening_float|floatformat:2 }}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="metric-box bg-emerald-50 border-emerald-200">
+                        <span class="metric-label text-emerald-800"><i class="bi bi-cash-stack me-1"></i> Nakit Satış</span>
+                        <div class="metric-val text-emerald-700">₺{{ cash_sales|floatformat:2 }}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="metric-box bg-blue-50 border-blue-200">
+                        <span class="metric-label text-blue-800"><i class="bi bi-credit-card me-1"></i> Kart Satışı</span>
+                        <div class="metric-val text-blue-700">₺{{ card_sales|floatformat:2 }}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="metric-box bg-indigo-50 border-indigo-200">
+                        <span class="metric-label text-indigo-800"><i class="bi bi-graph-up-arrow me-1"></i> Genel Ciro</span>
+                        <div class="metric-val text-indigo-700">₺{{ total_revenue|floatformat:2 }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KASA MUTABAKATI (HESAPLANAN vs SAYILAN NAKİT) -->
+            <div class="reconciliation-card mb-4">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-calculator-fill text-primary fs-5"></i>
+                    <h5 class="fw-bold text-slate-900 mb-0">Fiziki Kasa Sayımı ve Nakit Mutabakatı</h5>
+                </div>
+                <div class="row g-3 text-center align-items-center">
+                    <div class="col-md-4 border-end-md pb-2 pb-md-0">
+                        <span class="metric-label text-slate-600">KASADA OLMASI GEREKEN</span>
+                        <div class="metric-val text-primary">₺{{ shift.expected_cash|floatformat:2 }}</div>
+                        <small class="text-muted d-block mt-1 fs-8">(Açılış Devri + Nakit Satışlar)</small>
+                    </div>
+                    <div class="col-md-4 border-end-md pb-2 pb-md-0">
+                        <span class="metric-label text-slate-600">FİZİKİ SAYILAN NAKİT</span>
+                        <div class="metric-val text-slate-900">
+                            {% if shift.is_closed %}
+                            ₺{{ shift.actual_cash|floatformat:2 }}
+                            {% else %}
+                            <span class="fs-5 text-secondary">Sayım Bekleniyor</span>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted d-block mt-1 fs-8">Kapanışta çekmecede sayılan nakit</small>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="metric-label text-slate-600">KASA FARKI (AÇIK / FAZLA)</span>
+                        {% if shift.is_closed %}
+                            {% if shift.difference < 0 %}
+                            <div class="metric-val text-danger">₺{{ shift.difference|floatformat:2 }}</div>
+                            <span class="badge bg-danger text-white px-2 py-1 fs-8 mt-1"><i class="bi bi-exclamation-triangle-fill me-1"></i> KASA AÇIĞI</span>
+                            {% elif shift.difference > 0 %}
+                            <div class="metric-val text-blue-600">+₺{{ shift.difference|floatformat:2 }}</div>
+                            <span class="badge bg-primary text-white px-2 py-1 fs-8 mt-1"><i class="bi bi-info-circle-fill me-1"></i> KASA FAZLASI</span>
+                            {% else %}
+                            <div class="metric-val text-success">₺0.00</div>
+                            <span class="badge bg-success text-white px-2 py-1 fs-8 mt-1"><i class="bi bi-check-circle-fill me-1"></i> KASA TAM EŞİT</span>
+                            {% endif %}
+                        {% else %}
+                            <div class="metric-val text-muted">-</div>
+                            <small class="text-muted d-block mt-1 fs-8">Kasa kapandığında hesaplanacaktır</small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if shift.notes %}
+                <div class="mt-3 pt-3 border-top text-start">
+                    <span class="fw-bold small text-secondary d-block"><i class="bi bi-chat-left-text me-1"></i> Kapanış Notu:</span>
+                    <span class="text-slate-800 small">{{ shift.notes }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- BU VARDİYADAKİ İŞLEMLER / SATIŞLAR TABLOSU -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold text-slate-900 mb-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-receipt-cutoff text-secondary"></i> Bu Vardiyadaki Satış Fişleri
+                </h5>
+                <span class="badge bg-slate-100 text-slate-900 border border-slate-300 px-3 py-1.5 fs-8 fw-bold">Toplam: {{ sales_count }} Fiş</span>
+            </div>
+
+            <div class="table-responsive border rounded-3 mb-4">
+                <table class="table table-hover align-middle mb-0 fs-8">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3 py-2.5">Fiş No</th>
+                            <th>Saat</th>
+                            <th>Ödeme Tipi</th>
+                            <th class="text-end">Tutar</th>
+                            <th class="text-center pe-3 no-print">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in recent_sales %}
+                        <tr>
+                            <td class="ps-3 font-monospace fw-bold text-primary">{{ s.receipt_number }}</td>
+                            <td class="text-slate-600 font-monospace">{{ s.created_at|date:"H:i:s" }}</td>
+                            <td>
+                                {% if s.payment_type == 'NAKIT' %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 fw-bold">Nakit</span>
+                                {% elif s.payment_type == 'KART' %}
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 fw-bold">Banka/Kredi Kartı</span>
+                                {% else %}
+                                <span class="badge bg-slate-100 text-slate-900 border border-slate-300 px-2 py-1 fw-bold">{{ s.get_payment_type_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-extrabold text-slate-900 font-monospace">₺{{ s.total_amount|floatformat:2 }}</td>
+                            <td class="text-center pe-3 no-print">
+                                <a href="{% url 'receipt_view' s.receipt_number %}" target="_blank" class="btn btn-outline-secondary btn-sm py-1 px-2.5 fw-bold">
+                                    <i class="bi bi-printer me-1"></i> Yazdır
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-secondary">Bu vardiyada henüz satış fişi kaydedilmedi.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- AKSİYON BUTONLARI (ALT ÇUBUK) -->
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-3 border-top no-print">
+                <div class="d-flex gap-2">
+                    <a href="{% url 'pos_screen' %}" class="btn btn-outline-secondary fw-bold px-3 py-2">
+                        <i class="bi bi-arrow-left me-1"></i> Kasa Ekranı
+                    </a>
+                    <button class="btn btn-outline-dark fw-bold px-3 py-2" onclick="window.print()">
+                        <i class="bi bi-printer me-1"></i> Raporu Yazdır
+                    </button>
+                </div>
+
+                <div class="d-flex gap-2">
+                    {% if not shift.is_closed %}
+                    <button class="btn btn-danger text-white fw-bold px-4 py-2 shadow-xs d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#closeShiftModal">
+                        <i class="bi bi-lock-fill"></i> VARDİYAYI KAPAT (Z RAPORU AL)
+                    </button>
+                    {% else %}
+                    <button class="btn btn-success text-white fw-bold px-4 py-2 shadow-xs d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#openShiftModal">
+                        <i class="bi bi-plus-circle-fill"></i> YENİ VARDİYA AÇ
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- 1. VARDİYA KAPATMA MODALI -->
+<div class="modal fade" id="closeShiftModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border shadow-lg">
+            <div class="modal-header bg-danger text-white py-3 px-4">
+                <h5 class="modal-title fw-bold fs-6 d-flex align-items-center gap-2">
+                    <i class="bi bi-lock-fill"></i> GÜN SONU KASA KAPANIŞI (Z AL)
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-start">
+                <div class="alert alert-warning border-warning-subtle py-2.5 px-3 small rounded-3 mb-3">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Kasayı kapatmadan önce çekmecedeki tüm nakit parayı dikkatlice sayınız ve aşağıdaki kutuya yazınız.
+                </div>
+                
+                <div class="p-3 bg-light rounded-3 border mb-3 text-center">
+                    <span class="text-secondary small fw-bold d-block text-uppercase">Sistemde Beklenen Toplam Nakit</span>
+                    <div class="fs-4 fw-extrabold text-primary font-monospace">₺{{ shift.expected_cash|floatformat:2 }}</div>
+                    <small class="text-muted fs-8">(Açılış Devir: ₺{{ shift.opening_float }} + Nakit Satış: ₺{{ cash_sales }})</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-slate-800">Fiziki Sayılan Nakit Para (TL) *</label>
+                    <div class="input-group input-group-lg shadow-sm">
+                        <span class="input-group-text bg-white fw-bold text-slate-600 fs-4">₺</span>
+                        <input type="number" step="0.01" id="countedCashInput" class="form-control fs-2 fw-extrabold text-primary text-center font-monospace" placeholder="0.00">
+                    </div>
+                </div>
+
+                <!-- Dokunmatik Hızlı Banknot Ekleme Butonları -->
+                <div class="mb-2">
+                    <small class="text-slate-600 fw-bold d-block mb-1">DOKUNMATİK BANKNOT SAYACI (+ Ekle):</small>
+                    <div class="row g-1 mb-2">
+                        <div class="col-3"><button type="button" class="btn btn-outline-primary w-100 py-2 fw-extrabold fs-7" onclick="addCountedCash(500)">+500 TL</button></div>
+                        <div class="col-3"><button type="button" class="btn btn-outline-primary w-100 py-2 fw-extrabold fs-7" onclick="addCountedCash(200)">+200 TL</button></div>
+                        <div class="col-3"><button type="button" class="btn btn-outline-primary w-100 py-2 fw-extrabold fs-7" onclick="addCountedCash(100)">+100 TL</button></div>
+                        <div class="col-3"><button type="button" class="btn btn-outline-primary w-100 py-2 fw-extrabold fs-7" onclick="addCountedCash(50)">+50 TL</button></div>
+                        <div class="col-3"><button type="button" class="btn btn-outline-primary w-100 py-2 fw-extrabold fs-7" onclick="addCountedCash(20)">+20 TL</button></div>
+                        <div class="col-3"><button type="button" class="btn btn-outline-primary w-100 py-2 fw-extrabold fs-7" onclick="addCountedCash(10)">+10 TL</button></div>
+                        <div class="col-3"><button type="button" class="btn btn-warning w-100 py-2 fw-extrabold fs-7 text-dark" onclick="setCountedCash({{ shift.expected_cash|unlocalize }})">TAM BEKLENEN</button></div>
+                        <div class="col-3"><button type="button" class="btn btn-outline-danger w-100 py-2 fw-extrabold fs-7" onclick="setCountedCash(0)">SIFIRLA</button></div>
+                    </div>
+                </div>
+
+                <!-- Dokunmatik Numpad (Kapanış Modalı İçi) -->
+                <div class="row g-1.5 mb-3">
+                    <div class="col-3"><button type="button" class="btn touch-key w-100" onclick="touchTypeCountedCash('7')">7</button></div>
+                    <div class="col-3"><button type="button" class="btn touch-key w-100" onclick="touchTypeCountedCash('8')">8</button></div>
+                    <div class="col-3"><button type="button" class="btn touch-key w-100" onclick="touchTypeCountedCash('9')">9</button></div>
+                    <div class="col-3"><button type="button" class="btn touch-key touch-key-danger w-100" onclick="touchBackspaceCountedCash()"><i class="bi bi-backspace-fill"></i></button></div>
+                    <div class="col-3"><button type="button" class="btn touch-key w-100" onclick="touchTypeCountedCash('4')">4</button></div>
+                    <div class="col-3"><button type="button" class="btn touch-key w-100" onclick="touchTypeCountedCash('5')">5</button></div>
+                    <div class="col-3"><button type="button" class="btn touch-key w-100" onclick="touchTypeCountedCash('6')">6</button></div>
+                    <div class="col-3"><button type="button" class="btn touch-key touch-key-secondary w-100" onclick="touchClearCountedCash()">C</button></div>
+                    <div class="col-3"><button type="button" class="btn touch-key w-100" onclick="touchTypeCountedCash('1')">1</button></div>
+                    <div class="col-3"><button type="button" class="btn touch-key w-100" onclick="touchTypeCountedCash('2')">2</button></div>
+                    <div class="col-3"><button type="button" class="btn touch-key w-100" onclick="touchTypeCountedCash('3')">3</button></div>
+                    <div class="col-3"><button type="button" class="btn touch-key w-100" onclick="touchTypeCountedCash('00')">00</button></div>
+                    <div class="col-6"><button type="button" class="btn touch-key w-100" onclick="touchTypeCountedCash('0')">0</button></div>
+                    <div class="col-6"><button type="button" class="btn touch-key w-100" onclick="touchTypeCountedCash('.')">,</button></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-slate-800">
+                        <i class="bi bi-shield-lock-fill text-danger me-1"></i> Kasiyer / Yetkili Şifresi *
+                        <span class="text-secondary fw-normal fs-8">({{ shift.cashier.get_full_name|default:shift.cashier.username|default:"Kasiyer" }})</span>
+                    </label>
+                    <div class="input-group input-group-lg shadow-sm">
+                        <span class="input-group-text bg-white text-danger border-2"><i class="bi bi-key-fill fs-4"></i></span>
+                        <input type="password" id="closeShiftPasswordInput" class="form-control fw-extrabold text-center font-monospace fs-4 border-2" placeholder="Şifrenizi giriniz..." autocomplete="current-password">
+                    </div>
+                    <small class="text-danger fw-semibold fs-8">Kasa kapanışını ve Z raporunu onaylamak için şifre zorunludur.</small>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small text-secondary fw-semibold">Kapanış Notu / Açıklama (Opsiyonel)</label>
+                    <textarea id="shiftNotesInput" class="form-control" rows="2" placeholder="Örn: 200 TL bozuk para bankaya teslim edildi..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer py-2.5 px-4 bg-light">
+                <button type="button" class="btn btn-light border fw-bold px-3 py-2.5" data-bs-dismiss="modal">Vazgeç</button>
+                <button type="button" class="btn btn-danger text-white fw-bold px-4 py-2.5 flex-grow-1 fs-6" id="btnConfirmCloseShift" onclick="submitCloseShift()">
+                    <i class="bi bi-lock-fill me-1"></i> KASAYI ONAYLA VE KAPAT
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. YENİ VARDİYA AÇMA MODALI -->
+<div class="modal fade" id="openShiftModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-success text-white py-3 px-4">
+                <h5 class="modal-title fw-bold fs-6 d-flex align-items-center gap-2">
+                    <i class="bi bi-unlock-fill"></i> YENİ KASA VARDİYASI BAŞLAT
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-start">
+                <div class="alert alert-info border-info-subtle py-2.5 px-3 small rounded-3 mb-3">
+                    <i class="bi bi-info-circle-fill me-1"></i> Yeni bir satış vardiyası açmak üzeresiniz. Lütfen kasiyer seçip şifrenizi giriniz.
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-slate-800">Vardiyayı Açacak Kasiyer *</label>
+                    <select id="openCashierSelect" class="form-select form-select-lg fw-bold border-2">
+                        {% for u in cashiers %}
+                        <option value="{{ u.id }}" {% if u.username == 'kasiyer' or u.id == request.user.id %}selected{% endif %}>
+                            {{ u.get_full_name|default:u.username }} ({{ u.username }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-slate-800">
+                        <i class="bi bi-shield-lock-fill text-success me-1"></i> Kasiyer Şifresi *
+                    </label>
+                    <div class="input-group input-group-lg shadow-sm">
+                        <span class="input-group-text bg-white text-success border-2"><i class="bi bi-key-fill fs-4"></i></span>
+                        <input type="password" id="openShiftPasswordInput" class="form-control fw-extrabold text-center font-monospace fs-4 border-2" placeholder="Kasiyer şifresini giriniz..." autocomplete="current-password">
+                    </div>
+                    <small class="text-secondary fs-8">Yeni vardiya açmak için kasiyer şifrenizi girmelisiniz.</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-slate-800">Açılış Devir Nakit Tutarı (TL) *</label>
+                    <div class="input-group input-group-lg shadow-sm">
+                        <span class="input-group-text bg-white fw-bold text-slate-600">₺</span>
+                        <input type="number" step="0.01" id="openingFloatInput" class="form-control fw-extrabold text-success text-center font-monospace" value="500.00">
+                    </div>
+                    <small class="text-muted fs-8">Kasa çekmecesindeki başlangıç bozuk para tutarı.</small>
+                </div>
+
+                <!-- Dokunmatik Hazır Açılış Butonları -->
+                <div class="row g-2 mb-3">
+                    <div class="col-3"><button type="button" class="btn btn-outline-secondary w-100 py-2 fw-bold" onclick="setOpeningPreset(250)">250 TL</button></div>
+                    <div class="col-3"><button type="button" class="btn btn-outline-success w-100 py-2 fw-extrabold active" onclick="setOpeningPreset(500)">500 TL</button></div>
+                    <div class="col-3"><button type="button" class="btn btn-outline-secondary w-100 py-2 fw-bold" onclick="setOpeningPreset(750)">750 TL</button></div>
+                    <div class="col-3"><button type="button" class="btn btn-outline-secondary w-100 py-2 fw-bold" onclick="setOpeningPreset(1000)">1000 TL</button></div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small text-secondary fw-semibold">Vardiya Açılış Notu (Opsiyonel)</label>
+                    <textarea id="openShiftNotesInput" class="form-control" rows="2" placeholder="Örn: Sabah vardiyası devralındı..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer py-2.5 px-4 bg-light">
+                <button type="button" class="btn btn-light border fw-bold px-3 py-2.5" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-success text-white fw-bold px-4 py-2.5 flex-grow-1 fs-6" id="btnConfirmOpenShift" onclick="submitOpenShift()">
+                    <i class="bi bi-check2-circle me-1"></i> Vardiyayı Başlat
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Dokunmatik Banknot Sayacı ve Numpad Fonksiyonları
+    function addCountedCash(val) {
+        const input = document.getElementById('countedCashInput');
+        const curr = parseFloat(input.value) || 0;
+        input.value = (curr + val).toFixed(2);
+    }
+
+    function setCountedCash(val) {
+        document.getElementById('countedCashInput').value = parseFloat(val || 0).toFixed(2);
+    }
+
+    function touchTypeCountedCash(char) {
+        const input = document.getElementById('countedCashInput');
+        let val = input.value || '';
+        if (val === '0.00' || val === '0') val = '';
+        if (char === '.' && val.includes('.')) return;
+        val += char;
+        input.value = val;
+    }
+
+    function touchBackspaceCountedCash() {
+        const input = document.getElementById('countedCashInput');
+        let val = input.value || '';
+        val = val.slice(0, -1);
+        input.value = val;
+    }
+
+    function touchClearCountedCash() {
+        document.getElementById('countedCashInput').value = '';
+    }
+
+    function setOpeningPreset(val) {
+        document.getElementById('openingFloatInput').value = parseFloat(val).toFixed(2);
+    }
+
+    function submitCloseShift() {
+        const cashVal = parseFloat(document.getElementById('countedCashInput').value);
+        if (isNaN(cashVal)) {
+            alert('Lütfen kasada sayılan fiziki nakit tutarını giriniz.');
+            document.getElementById('countedCashInput').focus();
+            return;
+        }
+
+        const password = document.getElementById('closeShiftPasswordInput').value.trim();
+        if (!password) {
+            alert('Lütfen kasayı kapatmak için kasiyer şifrenizi giriniz!');
+            document.getElementById('closeShiftPasswordInput').focus();
+            return;
+        }
+
+        const notes = document.getElementById('shiftNotesInput').value;
+        const btn = document.getElementById('btnConfirmCloseShift');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Kasa Kapatılıyor...';
+
+        fetch('/api/shift/close/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                shift_id: {{ shift.id }},
+                actual_cash: cashVal,
+                notes: notes,
+                password: password
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Vardiya başarıyla kapatıldı ve Z Raporu oluşturuldu!\nKasa Farkı: ' + data.difference.toFixed(2) + ' TL');
+                window.location.href = '/z-report/?shift_id=' + data.shift_id;
+            } else {
+                alert('Hata: ' + (data.message || 'Vardiya kapatılamadı.'));
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-lock-fill me-1"></i> KASAYI ONAYLA VE KAPAT';
+            }
+        })
+        .catch(err => {
+            alert('Sunucu iletişim hatası: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-lock-fill me-1"></i> KASAYI ONAYLA VE KAPAT';
+        });
+    }
+
+    function submitOpenShift() {
+        const floatVal = parseFloat(document.getElementById('openingFloatInput').value);
+        if (isNaN(floatVal) || floatVal < 0) {
+            alert('Lütfen geçerli bir açılış devir tutarı giriniz.');
+            return;
+        }
+
+        const cashierId = document.getElementById('openCashierSelect') ? document.getElementById('openCashierSelect').value : null;
+        const password = document.getElementById('openShiftPasswordInput').value.trim();
+        if (!password) {
+            alert('Lütfen yeni vardiya açmak için kasiyer şifrenizi giriniz!');
+            document.getElementById('openShiftPasswordInput').focus();
+            return;
+        }
+
+        const notes = document.getElementById('openShiftNotesInput').value;
+        const btn = document.getElementById('btnConfirmOpenShift');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Vardiya Açılıyor...';
+
+        fetch('/api/shift/open/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                opening_float: floatVal,
+                notes: notes,
+                cashier_id: cashierId,
+                password: password
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Yeni vardiya başarıyla başlatıldı!');
+                window.location.href = '/z-report/?shift_id=' + data.shift_id;
+            } else {
+                alert('Hata: ' + (data.message || 'Vardiya açılamadı.'));
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Vardiyayı Başlat';
+            }
+        })
+        .catch(err => {
+            alert('Sunucu iletişim hatası: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Vardiyayı Başlat';
+        });
+    }
+</script>
+{% endblock %}

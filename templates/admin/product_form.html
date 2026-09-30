@@ -1,0 +1,276 @@
+{% extends "admin/base_site.html" %}
+{% load static l10n %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- SAYFA BAŞLIĞI VE HİYERARŞİK AKSİYONLAR -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary text-white fs-8 px-2 py-0.5 rounded-1">ÜRÜN YÖNETİMİ</span>
+                <span class="text-secondary fs-8 fw-semibold">/ {% if product %}Ürün Kartı Düzenleme{% else %}Yeni Ürün Kartı Tanımlama{% endif %}</span>
+            </div>
+            <h1 class="h3 fw-bold text-slate-900 mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-box-seam-fill text-primary"></i>
+                {% if product %}Ürünü Düzenle: {{ product.name }}{% else %}Yeni Ürün Tanımla{% endif %}
+            </h1>
+            <span class="text-secondary small fw-medium">Barkod, kategori, fiyatlandırma, otomatik kar marjı ve stok politikası.</span>
+        </div>
+        <div class="d-flex gap-2">
+            {% if product %}
+                <a href="{% url 'stock_entry_create' %}?product_id={{ product.id }}" class="btn btn-sm btn-outline-success fw-bold px-3 py-1.5 d-flex align-items-center gap-1.5">
+                    <i class="bi bi-box-arrow-in-down"></i> Bu Ürüne Mal Kabulü Yap
+                </a>
+            {% endif %}
+            <a href="{% url 'product_catalog_view' %}" class="btn btn-sm btn-outline-secondary fw-bold px-3 py-1.5 d-flex align-items-center gap-1.5">
+                <i class="bi bi-arrow-left"></i> Kataloğa Dön
+            </a>
+        </div>
+    </div>
+
+    <!-- BİLGİ & UYARI MESAJLARI -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3 rounded-2 shadow-xs py-2 px-3 fs-7" role="alert">
+                <i class="bi bi-check-circle-fill me-1"></i> {{ message }}
+                <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" id="productForm">
+        {% csrf_token %}
+        <div class="row g-3">
+            <!-- SOL KOLON: KİMLİK, FİYAT & STOK -->
+            <div class="col-12 col-lg-8">
+                <!-- 1. TEMEL KİMLİK TANIMI -->
+                <div class="card mb-3">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <i class="bi bi-upc-scan text-primary"></i>
+                        <span class="fw-bold text-slate-900">1. TEMEL KİMLİK VE BARKOD TANIMI</span>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="row g-2.5">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Ana Barkod (EAN-13 vb.) *</label>
+                                <input type="text" name="barcode" class="form-control font-monospace fw-bold text-primary" required value="{{ product.barcode|default:'' }}" placeholder="Örn: 8690000000000">
+                                <small class="text-secondary fs-8">Kasa okuyucusunda okutulacak ana barkod.</small>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">İkincil / Koli Barkodu</label>
+                                <input type="text" name="secondary_barcode" class="form-control font-monospace" value="{{ product.secondary_barcode|default:'' }}" placeholder="Koli veya alternatif barkod">
+                                <small class="text-secondary fs-8">Toptancı kolisinde farklı barkod varsa giriniz.</small>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Ürün Adı *</label>
+                                <input type="text" name="name" class="form-control fw-bold" required value="{{ product.name|default:'' }}" placeholder="Örn: Sütaş Tam Yağlı Süt 1L">
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Ürün Kategorisi</label>
+                                <select name="category_id" class="form-select">
+                                    <option value="">-- Kategori Seçiniz --</option>
+                                    {% for c in categories %}
+                                        <option value="{{ c.id }}" {% if product and product.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Varsayılan Toptancı / Tedarikçi</label>
+                                <select name="supplier_id" class="form-select">
+                                    <option value="">-- Toptancı Seçiniz --</option>
+                                    {% for s in suppliers %}
+                                        <option value="{{ s.id }}" {% if product and product.supplier_id == s.id %}selected{% endif %}>{{ s.company_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. FİYATLANDIRMA VE DİNAMİK KAR MARJI -->
+                <div class="card mb-3">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <i class="bi bi-tag-fill text-success"></i>
+                        <span class="fw-bold text-slate-900">2. FİYATLANDIRMA VE KAR MARJI HESABI</span>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="row g-2.5 align-items-center">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">Birim Alış Fiyatı (TL)</label>
+                                <input type="number" step="0.01" id="buyPriceInput" name="buy_price" class="form-control" value="{% if product %}{{ product.buy_price|unlocalize }}{% else %}0.00{% endif %}" oninput="calculateMargin()">
+                                <small class="text-secondary fs-8">Toptancı maliyet fiyatı</small>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">Raf Satış Fiyatı (TL) *</label>
+                                <input type="number" step="0.01" id="sellPriceInput" name="sell_price" class="form-control fw-extrabold text-success" required value="{% if product %}{{ product.sell_price|unlocalize }}{% else %}0.00{% endif %}" oninput="calculateMargin()">
+                                <small class="text-secondary fs-8">Kasadaki nihai satış tutarı</small>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">KDV Oranı (%) *</label>
+                                <input type="number" step="0.01" name="vat_rate" class="form-control fw-bold" value="{% if product %}{{ product.vat_rate|unlocalize }}{% else %}20.00{% endif %}">
+                                <small class="text-secondary fs-8">Varsayılan %20 (Değiştirilebilir)</small>
+                            </div>
+
+                            <!-- CANLI KAR MARJI VE VERGİ GÖSTERGE KUTUSU -->
+                            <div class="col-12 mt-2">
+                                <div class="p-2.5 rounded-2 border d-flex flex-wrap justify-content-between align-items-center gap-2" style="background-color: #f0fdf4; border-color: #bbf7d0 !important;">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-calculator text-success fs-5"></i>
+                                        <div>
+                                            <span class="fw-bold text-slate-900 fs-8 d-block">Otomatik Kâr Marjı ve KDV Matrahı:</span>
+                                            <small class="text-secondary fs-8">Alış ve satış fiyatına göre net kazanç ve iç vergi</small>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex flex-wrap align-items-center gap-3">
+                                        <div class="text-end">
+                                            <span class="fs-8 text-secondary d-block">KDV Hariç Matrah:</span>
+                                            <strong class="text-slate-800 fs-8 font-monospace" id="vatNetDisplay">₺0.00</strong>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="fs-8 text-secondary d-block">İç KDV Tutarı:</span>
+                                            <strong class="text-info fs-8 font-monospace" id="vatAmountDisplay">₺0.00</strong>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="fs-8 text-secondary d-block">Birim Net Kâr:</span>
+                                            <strong class="text-success fs-7 font-monospace" id="profitTlDisplay">₺0.00</strong>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="fs-8 text-secondary d-block">Kâr Marjı:</span>
+                                            <span class="badge bg-success text-white fs-7 px-2.5 py-1" id="profitPercentDisplay">%0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. ENVANTER VE STOK POLİTİKASI -->
+                <div class="card">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <i class="bi bi-boxes text-warning"></i>
+                        <span class="fw-bold text-slate-900">3. ENVANTER VE STOK POLİTİKASI</span>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="row g-2.5">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">Satış Birimi</label>
+                                <select name="unit" class="form-select">
+                                    {% for u_code, u_label in unit_choices %}
+                                        <option value="{{ u_code }}" {% if product and product.unit == u_code %}selected{% endif %}>{{ u_label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">Kritik Stok Uyarısı Seviyesi</label>
+                                <input type="number" step="0.001" name="min_stock_level" class="form-control" value="{% if product %}{{ product.min_stock_level|unlocalize }}{% else %}5.000{% endif %}">
+                                <small class="text-secondary fs-8">Bu miktarın altına düşünce uyarı verir.</small>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">Mevcut / Açılış Stok Miktarı</label>
+                                <input type="number" step="0.001" name="stock_quantity" class="form-control fw-bold" value="{% if product %}{{ product.stock_quantity|unlocalize }}{% else %}0.000{% endif %}">
+                                <small class="text-secondary fs-8">Açılış veya sayım düzeltmesi miktarı.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SAĞ KOLON: KASA SEÇENEKLERİ VE KAYDET -->
+            <div class="col-12 col-lg-4">
+                <div class="card mb-3">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <i class="bi bi-sliders text-primary"></i>
+                        <span class="fw-bold text-slate-900">KASA & POS SEÇENEKLERİ</span>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="form-check form-switch mb-2.5">
+                            <input class="form-check-input" type="checkbox" name="is_weighted" id="is_weighted" {% if product and product.is_weighted %}checked{% endif %}>
+                            <label class="form-check-label fw-bold text-slate-800 fs-8" for="is_weighted">Tartılı / Terazi Ürünü mü?</label>
+                            <small class="text-secondary d-block fs-8">27/28 gramaj barkodu ile çözümlenir.</small>
+                        </div>
+
+                        <div class="form-check form-switch mb-2.5">
+                            <input class="form-check-input" type="checkbox" name="is_quick_button" id="is_quick_button" {% if product and product.is_quick_button %}checked{% endif %}>
+                            <label class="form-check-label fw-bold text-slate-800 fs-8" for="is_quick_button">Hızlı Satış Butonu mu?</label>
+                            <small class="text-secondary d-block fs-8">Kasa ekranında barkodsuz hızlı buton olarak görünür.</small>
+                        </div>
+
+                        <div class="mb-2.5">
+                            <label class="form-label">Hızlı Buton Sıralaması</label>
+                            <input type="number" name="quick_button_order" class="form-control" value="{% if product %}{{ product.quick_button_order|unlocalize }}{% else %}0{% endif %}">
+                        </div>
+
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" name="is_active" id="is_active" {% if not product or product.is_active %}checked{% endif %}>
+                            <label class="form-check-label fw-bold text-slate-800 fs-8" for="is_active">Satışta Aktif mi?</label>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">Ürün Görseli</label>
+                            <input type="file" name="image" class="form-control fs-8">
+                            {% if product and product.image %}
+                                <div class="mt-2 text-center p-2 bg-light rounded-2 border">
+                                    <img src="{{ product.image.url }}" class="rounded-2" style="max-height: 90px; object-fit: contain;">
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KAYDET BUTONU KARTI -->
+                <div class="card p-3">
+                    <button type="submit" class="btn btn-primary text-white w-100 fw-bold py-2.5 shadow-xs fs-7 d-flex align-items-center justify-content-center gap-2">
+                        <i class="bi bi-check-circle-fill fs-6"></i>
+                        <span>{% if product %}Değişiklikleri Kaydet{% else %}Yeni Ürünü Sisteme Ekle{% endif %}</span>
+                    </button>
+                    <a href="{% url 'product_catalog_view' %}" class="btn btn-light border w-100 fw-bold mt-2 py-1.5 fs-8 text-secondary">
+                        Vazgeç ve Kataloğa Dön
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function calculateMargin() {
+    const buyPrice = parseFloat(document.getElementById('buyPriceInput').value) || 0;
+    const sellPrice = parseFloat(document.getElementById('sellPriceInput').value) || 0;
+    const vatRate = parseFloat(document.querySelector('[name=vat_rate]').value) || 20;
+
+    const profitTlDisplay = document.getElementById('profitTlDisplay');
+    const profitPercentDisplay = document.getElementById('profitPercentDisplay');
+    const vatNetDisplay = document.getElementById('vatNetDisplay');
+    const vatAmountDisplay = document.getElementById('vatAmountDisplay');
+
+    // KDV Dahil Satış Fiyatından Matrah ve İç KDV Hesabı
+    let vatNet = sellPrice;
+    let vatAmount = 0;
+    if (vatRate > 0) {
+        vatNet = sellPrice / (1.0 + (vatRate / 100.0));
+        vatAmount = sellPrice - vatNet;
+    }
+    vatNetDisplay.textContent = '₺' + vatNet.toFixed(2);
+    vatAmountDisplay.textContent = '₺' + vatAmount.toFixed(2);
+
+    const profitTl = sellPrice - buyPrice;
+    profitTlDisplay.textContent = '₺' + profitTl.toFixed(2);
+
+    if (buyPrice > 0) {
+        const percent = ((profitTl / buyPrice) * 100).toFixed(1);
+        profitPercentDisplay.textContent = '%' + percent;
+        if (profitTl >= 0) {
+            profitPercentDisplay.className = 'badge bg-success text-white fs-7 px-2.5 py-1';
+        } else {
+            profitPercentDisplay.className = 'badge bg-danger text-white fs-7 px-2.5 py-1';
+        }
+    } else {
+        profitPercentDisplay.textContent = '%0';
+        profitPercentDisplay.className = 'badge bg-secondary text-white fs-7 px-2.5 py-1';
+    }
+}
+document.addEventListener('DOMContentLoaded', calculateMargin);
+document.querySelector('[name=vat_rate]')?.addEventListener('input', calculateMargin);
+</script>
+{% endblock %}

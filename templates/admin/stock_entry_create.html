@@ -1,0 +1,857 @@
+{% extends "admin/base_site.html" %}
+{% load static l10n %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    /* =========================================================
+       FATURA VE MAL KABUL TABLOSU - SIKI VE TAM SIĞAN TASARIM
+       Sayıların ve metinlerin kesilmesini (truncate) kesin olarak engeller
+       ========================================================= */
+    #itemsTable {
+        width: 100% !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+    }
+    #itemsTable th {
+        padding: 9px 6px !important;
+        font-size: 0.76rem !important;
+        font-weight: 800 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.4px !important;
+        vertical-align: middle !important;
+        white-space: nowrap !important;
+        background-color: #f8fafc !important;
+        border-bottom: 2px solid #cbd5e1 !important;
+    }
+    #itemsTable td {
+        padding: 6px 4px !important;
+        vertical-align: middle !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+    }
+    #itemsTable .form-control, #itemsTable .form-select {
+        padding: 4px 6px !important;
+        font-size: 0.83rem !important;
+        height: 36px !important;
+        line-height: 1.25 !important;
+        border-radius: 5px !important;
+    }
+    /* Chrome/Safari sayı butonlarını (spin arrows) gizle -> 16px yer aç */
+    #itemsTable input[type=number]::-webkit-inner-spin-button, 
+    #itemsTable input[type=number]::-webkit-outer-spin-button { 
+        -webkit-appearance: none !important; 
+        margin: 0 !important; 
+    }
+    #itemsTable input[type=number] {
+        -moz-appearance: textfield !important;
+    }
+    /* Segmented Radio Butonlar (İşlem Türü) */
+    .entry-type-segment .btn-check:checked + .btn {
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- SAYFA BAŞLIĞI VE HİYERARŞİK AKSİYONLAR -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-info text-white fs-8 px-2 py-0.5 rounded-1">STOK & İRSALİYE</span>
+                <span class="text-secondary fs-8 fw-semibold">/ Piramit Seviye 2 - Mal Kabul & İade</span>
+            </div>
+            <h1 class="h3 fw-bold text-slate-900 mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-box-arrow-in-down text-primary" id="pageTitleIcon"></i>
+                <span id="pageTitleText">YENİ MAL KABUL & İRSALİYE GİRİŞİ</span>
+            </h1>
+            <span class="text-secondary small fw-medium" id="pageSubTitle">Toptancıdan gelen mal faturasını işleyiniz. Stoklar, birim maliyetler ve cari bakiye anında güncellenir.</span>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'stock_entry_list' %}" class="btn btn-sm btn-outline-secondary fw-bold px-3 py-2 d-flex align-items-center gap-1.5 touch-btn">
+                <i class="bi bi-arrow-left"></i> Fiş Geçmişine Dön
+            </a>
+        </div>
+    </div>
+
+    <!-- HATA / UYARI MESAJLARI -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3 rounded-2 shadow-xs py-2 px-3 fs-7" role="alert">
+                <i class="bi bi-info-circle-fill me-1"></i> {{ message }}
+                <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" id="stockEntryForm">
+        {% csrf_token %}
+        <div class="row g-3">
+            <!-- SOL KOLON: EVRAK VE TEDARİKÇİ BİLGİLERİ (Genişlik Orantılı) -->
+            <div class="col-12 col-xl-4 col-xxl-3">
+                <div class="card h-100 shadow-xs border">
+                    <div class="card-header bg-white py-2.5 px-3 border-bottom d-flex align-items-center gap-2">
+                        <i class="bi bi-file-earmark-text-fill text-primary"></i>
+                        <span class="fw-bold text-slate-900 fs-7">EVRAK VE TEDARİKÇİ BİLGİLERİ</span>
+                    </div>
+                    <div class="card-body p-3">
+                        <!-- İŞLEM TÜRÜ SEÇİMİ (ŞIK SEGMENT BUTONLAR) -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-slate-800 d-block mb-1.5 fs-8">İşlem Türü Seçiniz *</label>
+                            <div class="btn-group w-100 p-1 rounded-2 border entry-type-segment" id="entryTypeBox" role="group" style="background-color: #f1f5f9;">
+                                <input type="radio" class="btn-check" name="entry_type" id="typeGiris" value="GIRIS" checked onchange="handleEntryTypeChange(this.value)">
+                                <label class="btn btn-sm btn-outline-primary fw-bold py-2 border-0 rounded-2 fs-8" for="typeGiris">
+                                    <i class="bi bi-box-arrow-in-down me-1"></i> Mal Kabulü (Giriş)
+                                </label>
+                                <input type="radio" class="btn-check" name="entry_type" id="typeIade" value="IADE" onchange="handleEntryTypeChange(this.value)">
+                                <label class="btn btn-sm btn-outline-danger fw-bold py-2 border-0 rounded-2 fs-8" for="typeIade">
+                                    <i class="bi bi-arrow-return-left me-1"></i> Toptancıya İade
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- TEDARİKÇİ CARİ SEÇİMİ (Piramit Kök Seviye 1 - Otomatik Seçim Destekli) -->
+                        <div class="mb-2.5">
+                            <label class="form-label fw-bold fs-8">Toptancı / Tedarikçi Seçiniz *</label>
+                            <select name="supplier_id" id="supplierSelect" class="form-select fw-bold fs-7" required onchange="handleSupplierChange(this)">
+                                <option value="">-- Toptancı Seçiniz --</option>
+                                {% for s in suppliers %}
+                                    <option value="{{ s.id }}" data-balance="{{ s.balance|unlocalize }}"
+                                            {% if preselected_supplier_id == s.id %}selected{% endif %}>
+                                        {{ s.company_name }} (Bakiye: ₺{{ s.balance|floatformat:2 }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-secondary fs-8 d-block mt-0.5">Toptancı seçildiğinde ürünler üstte öncelikli gruplanır.</small>
+                        </div>
+
+                        <div class="mb-2.5">
+                            <label class="form-label fw-bold fs-8">Fatura / İrsaliye Numarası *</label>
+                            <input type="text" name="invoice_number" class="form-control font-monospace fw-bold fs-7" required placeholder="Örn: FTR-2026-0045">
+                        </div>
+
+                        <div class="mb-2.5">
+                            <label class="form-label fw-bold fs-8">Ödeme Yöntemi / Cari Durumu</label>
+                            <select name="payment_type" class="form-select fs-8">
+                                <option value="VERESIYE" selected>Cari Hesaba Borç İşle (Açık Hesap / Veresiye)</option>
+                                <option value="NAKIT">Nakit Kasadan Ödendi</option>
+                                <option value="HAVALE">Banka Havale / EFT İle Ödendi</option>
+                                <option value="KART">Kredi Kartı İle Ödendi</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fs-8">Notlar / Açıklama</label>
+                            <textarea name="notes" class="form-control fs-8" rows="2" placeholder="Teslimat, irsaliye veya iade gerekçesi notu..."></textarea>
+                        </div>
+
+                        <!-- FİNANSAL ETKİ VE TOPLAM GÖSTERGESİ -->
+                        <div class="p-3 bg-light rounded-2 border text-center mt-2 shadow-xs">
+                            <span class="text-secondary d-block fs-8 fw-bold text-uppercase" id="totalHeaderLabel">FATURA GENEL TOPLAMI</span>
+                            <div class="fs-2 fw-extrabold text-primary mb-0 font-monospace" id="grandTotalDisplay">
+                                {% if preselected_product %}₺{{ preselected_product.buy_price|floatformat:2 }}{% else %}₺0.00{% endif %}
+                            </div>
+                            <span class="text-slate-600 fs-8 d-block mt-1" id="totalSubLabel">Stoka giren net mal maliyet toplamı</span>
+                            <div class="mt-2 pt-2 border-top text-slate-700 fs-8 fw-semibold" id="supplierImpactDisplay">
+                                Toptancı seçildiğinde bakiye etkisi burada gösterilir.
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary text-white w-100 fw-bold py-2.5 mt-3 shadow-xs fs-7 touch-btn" id="submitEntryBtn">
+                            <i class="bi bi-check-circle-fill me-1"></i> Faturayı Onayla ve Stokları Güncelle
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SAĞ KOLON: BARKOD TARAMA VE FATURA SATIRLARI (Geniş Alan) -->
+            <div class="col-12 col-xl-8 col-xxl-9">
+                <div class="card h-100 shadow-xs border">
+                    <div class="card-header bg-white py-2.5 px-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-boxes text-warning fs-6"></i>
+                            <span class="fw-bold text-slate-900 fs-7" id="itemsTableTitle">FATURADAKİ ÜRÜNLER (MAL KABUL)</span>
+                            <span class="badge bg-slate-100 text-slate-900 border border-slate-300 fs-8 fw-bold" id="rowCountBadge">1 Satır</span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 py-1.5 touch-btn" data-bs-toggle="modal" data-bs-target="#quickProductModal">
+                                <i class="bi bi-plus-circle me-1"></i> + Hızlı Yeni Ürün Tanımla
+                            </button>
+                            <button type="button" class="btn btn-sm btn-success text-white fw-bold px-3 py-1.5 touch-btn" id="addRowBtn" onclick="addNewRow()">
+                                <i class="bi bi-plus-lg me-1"></i> Yeni Satır Ekle
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-3">
+                        <!-- 📦 DOKUNMATİK VE EL TERMİNALİ BARKOD OKUTMA ÇUBUĞU (TAM SIĞAN) -->
+                        <div class="p-2 mb-3 rounded-2 border bg-light d-flex flex-wrap gap-2 align-items-center">
+                            <div class="input-group flex-grow-1">
+                                <span class="input-group-text bg-primary text-white border-primary px-3">
+                                    <i class="bi bi-upc-scan fs-5"></i>
+                                </span>
+                                <input type="text" id="scanBarcodeInput" class="form-control font-monospace fw-bold fs-7" placeholder="Barkod Okutunuz (Enter)..." autocomplete="off" autofocus>
+                                <button type="button" class="btn btn-primary fw-bold text-white px-3 touch-btn" onclick="handleBarcodeScanInput()">
+                                    <i class="bi bi-plus-lg me-1"></i> Faturaya Ekle
+                                </button>
+                            </div>
+                            <div class="d-flex align-items-center gap-1.5 text-secondary fs-8 ms-auto">
+                                <i class="bi bi-lightning-charge-fill text-warning"></i>
+                                <span>Barkod okutulduğunda ürün otomatik bulunur ve faturaya eklenir.</span>
+                            </div>
+                        </div>
+
+                        <!-- FATURA ÜRÜN TABLOSU (HİYERARŞİK FİYATLANDIRMA & KESİNTİSİZ GÖRÜNÜM) -->
+                        <div class="table-responsive">
+                            <table class="table mb-0 fs-8 align-middle" id="itemsTable">
+                                <thead>
+                                    <tr class="table-light text-slate-800">
+                                        <th style="min-width: 210px;">ÜRÜN SEÇİMİ</th>
+                                        <th style="width: 80px; min-width: 75px;" class="text-center">MİKTAR</th>
+                                        <th style="width: 85px; min-width: 80px;" class="text-center">BİRİM</th>
+                                        <th style="width: 100px; min-width: 95px;" class="text-center">BİRİM FİYAT</th>
+                                        <th style="width: 70px; min-width: 65px;" class="text-center">İSK. (%)</th>
+                                        <th style="width: 70px; min-width: 65px;" class="text-center">KDV (%)</th>
+                                        <th style="width: 105px; min-width: 100px;" class="text-end">ALIŞ MALİYETİ</th>
+                                        <th style="width: 105px; min-width: 100px;" class="text-end">TUTAR (TL)</th>
+                                        <th style="width: 40px; min-width: 40px;" class="text-center"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itemsBody">
+                                    <tr>
+                                        <td>
+                                            <select name="product_id[]" class="form-select product-select" required onchange="calculateRowTotal(this)">
+                                                <option value="">-- Ürün Seçiniz --</option>
+                                                {% for p in products %}
+                                                    <option value="{{ p.id }}" 
+                                                            data-supplier="{{ p.supplier_id|default:'' }}"
+                                                            data-buyprice="{{ p.buy_price|unlocalize }}" 
+                                                            data-vatrate="{{ p.vat_rate|unlocalize }}"
+                                                            data-unit="{{ p.unit }}"
+                                                            {% if preselect_product_id == p.id|stringformat:"s" %}selected{% endif %}>
+                                                        {{ p.name }} ({{ p.barcode }}) [Stok: {{ p.stock_quantity|floatformat:1 }} {{ p.unit }}]
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="number" step="0.001" name="quantity[]" class="form-control quantity-input fw-bold text-center" value="1.000" min="0.001" required oninput="calculateRowTotal(this)">
+                                        </td>
+                                        <td>
+                                            <select name="unit[]" class="form-select unit-select text-center fw-semibold">
+                                                {% for u_code, u_label in unit_choices %}
+                                                    <option value="{{ u_code }}" {% if preselected_product and preselected_product.unit == u_code %}selected{% endif %}>{{ u_code }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="number" step="0.01" name="list_price[]" class="form-control listprice-input font-monospace fw-semibold text-end" value="{% if preselected_list_price %}{{ preselected_list_price|unlocalize }}{% else %}0.00{% endif %}" placeholder="0.00" title="Toptancı Liste Fiyatı" oninput="calculateRowTotal(this)">
+                                        </td>
+                                        <td>
+                                            <input type="number" step="0.01" name="discount_rate[]" class="form-control discount-input font-monospace text-center" value="0.00" placeholder="%" title="İskonto Oranı (%)" oninput="calculateRowTotal(this)">
+                                        </td>
+                                        <td>
+                                            <input type="number" step="0.01" name="vat_rate[]" class="form-control vat-input font-monospace text-center" value="{% if preselected_product %}{{ preselected_product.vat_rate|unlocalize }}{% else %}20.00{% endif %}" placeholder="%" title="KDV Oranı (%)" oninput="calculateRowTotal(this)">
+                                        </td>
+                                        <td class="text-end">
+                                            <input type="hidden" name="buy_price[]" class="buyprice-input" value="{% if preselected_product %}{{ preselected_product.buy_price|unlocalize }}{% else %}0.00{% endif %}">
+                                            <span class="font-monospace fw-bold text-primary fs-7 calc-buyprice-display">
+                                                {% if preselected_product %}₺{{ preselected_product.buy_price|floatformat:2 }}{% else %}₺0.00{% endif %}
+                                            </span>
+                                        </td>
+                                        <td class="fw-bold text-end text-slate-900 font-monospace fs-7 row-total">
+                                            {% if preselected_product %}₺{{ preselected_product.buy_price|floatformat:2 }}{% else %}₺0.00{% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1 touch-btn" onclick="removeRow(this)" title="Satırı Sil">
+                                                <i class="bi bi-trash-fill fs-6"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- =========================================================
+     HIZLI YENİ ÜRÜN TANIMLAMA MODALI (FATURAYI KESMEDEN ÜRÜN EKLEME)
+     ========================================================= -->
+<div class="modal fade" id="quickProductModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-3 overflow-hidden">
+            <div class="modal-header bg-primary text-white py-2.5 px-3">
+                <h5 class="modal-title fs-6 fw-bold"><i class="bi bi-plus-circle me-1"></i> Faturaya Yeni Ürün Tanımla (Hızlı Giriş)</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3 bg-slate-50">
+                <div class="alert alert-info py-2 px-2.5 fs-8 mb-2.5">
+                    <i class="bi bi-info-circle-fill me-1"></i> Tanımladığınız ürün sisteme kaydedilecek, seçili toptancıya otomatik bağlanacak ve faturaya eklenecektir.
+                </div>
+                <div class="row g-2.5">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold fs-8">Ana Barkod *</label>
+                        <input type="text" id="quickBarcode" class="form-control font-monospace fw-bold" required placeholder="Barkod okutunuz...">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold fs-8">İkincil / Koli Barkodu (İsteğe Bağlı)</label>
+                        <input type="text" id="quickSecondaryBarcode" class="form-control font-monospace" placeholder="Koli barkodu varsa giriniz...">
+                    </div>
+                    <div class="col-12 col-md-8">
+                        <label class="form-label fw-bold fs-8">Ürün Adı *</label>
+                        <input type="text" id="quickName" class="form-control fw-bold" required placeholder="Örn: Çaykur Rize Çayı 500g">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label fw-bold fs-8">Kategori</label>
+                        <select id="quickCategory" class="form-select fs-8">
+                            <option value="">-- Kategori --</option>
+                            {% for c in categories %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- FİYATLANDIRMA PİRAMİDİ (HIZLI ÜRÜN) -->
+                    <div class="col-12 col-md-3">
+                        <label class="form-label fw-bold fs-8">Birim Fiyat (Liste ₺)</label>
+                        <input type="number" step="0.01" id="quickListPrice" class="form-control font-monospace" value="0.00" oninput="calculateQuickModalPrices()">
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label class="form-label fw-bold fs-8">İskonto (%)</label>
+                        <input type="number" step="0.01" id="quickDiscountRate" class="form-control font-monospace text-center" value="0.00" oninput="calculateQuickModalPrices()">
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label class="form-label fw-bold fs-8">KDV (%)</label>
+                        <input type="number" step="0.01" id="quickVatRate" class="form-control font-monospace text-center" value="20.00" oninput="calculateQuickModalPrices()">
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label class="form-label fw-bold text-primary fs-8">Hesaplanan Alış Maliyeti (₺)</label>
+                        <div class="form-control bg-light font-monospace fw-extrabold text-primary" id="quickBuyPriceDisplay">₺0.00</div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <label class="form-label fw-bold text-success fs-8">Raf Satış Fiyatı (KDV Dahil ₺) *</label>
+                        <input type="number" step="0.01" id="quickSellPrice" class="form-control fw-extrabold text-success font-monospace" value="0.00" oninput="calculateQuickModalPrices()">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label fw-bold fs-8">Kâr Marjı Önizleme</label>
+                        <div class="form-control bg-light fs-8 d-flex justify-content-between align-items-center">
+                            <span id="quickProfitTl">Kâr: ₺0.00</span>
+                            <span class="badge bg-secondary" id="quickProfitPercent">%0</span>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label fw-bold fs-8">Satış Birimi</label>
+                        <select id="quickUnit" class="form-select fs-8">
+                            {% for u_code, u_label in unit_choices %}
+                                <option value="{{ u_code }}">{{ u_label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-12 d-flex align-items-center pt-2">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="quickIsWeighted" onchange="handleQuickWeightedChange(this)">
+                            <label class="form-check-label fw-bold text-slate-800 fs-8" for="quickIsWeighted">
+                                <i class="bi bi-scale me-1 text-primary"></i> Tartılı / Terazi Ürünü mü?
+                            </label>
+                            <small class="text-secondary d-block fs-8">27/28 terazi barkodu ve kg tartımı için</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2.5 px-3 bg-light">
+                <button type="button" class="btn btn-light border fw-bold px-3 py-2 touch-btn fs-8" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary fw-bold px-4 py-2 text-white shadow-xs touch-btn fs-8" onclick="submitQuickProduct()">
+                    <i class="bi bi-check-lg me-1"></i> Ürünü Kaydet ve Faturaya Ekle
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Orijinal ürün seçenekleri önbelleği (Seçenek A filtrelemesi için)
+let allOriginalProductOptions = [];
+let currentEntryType = 'GIRIS';
+
+function playBeep() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = 900;
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    } catch(e) {}
+}
+
+function handleEntryTypeChange(val) {
+    currentEntryType = val;
+    const box = document.getElementById('entryTypeBox');
+    const titleIcon = document.getElementById('pageTitleIcon');
+    const titleText = document.getElementById('pageTitleText');
+    const subTitle = document.getElementById('pageSubTitle');
+    const headerLabel = document.getElementById('totalHeaderLabel');
+    const totalSub = document.getElementById('totalSubLabel');
+    const submitBtn = document.getElementById('submitEntryBtn');
+    const totalDisplay = document.getElementById('grandTotalDisplay');
+
+    if (val === 'IADE') {
+        titleIcon.className = 'bi bi-arrow-return-left text-danger';
+        titleText.textContent = 'TOPTANCIYA MAL İADESİ (STOK ÇIKIŞI)';
+        subTitle.textContent = 'Defolu veya iade edilecek malları giriniz. Stok miktarı düşecek ve toptancıya olan borcunuz azalacaktır.';
+        headerLabel.textContent = 'İADE EDİLECEK TOPLAM TUTAR';
+        totalSub.textContent = 'Toptancı borcundan düşülecek tutar';
+        totalDisplay.className = 'fs-2 fw-extrabold text-danger mb-0 font-monospace';
+        submitBtn.className = 'btn btn-danger text-white w-100 fw-bold py-2.5 mt-3 shadow-xs fs-7 touch-btn';
+        submitBtn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i> İadeyi Onayla ve Stokları Düş';
+    } else {
+        titleIcon.className = 'bi bi-box-arrow-in-down text-primary';
+        titleText.textContent = 'YENİ MAL KABUL & İRSALİYE GİRİŞİ';
+        subTitle.textContent = 'Toptancıdan gelen mal faturasını işleyiniz. Stoklar, birim maliyetler ve cari borç bakiyesi anında güncellenir.';
+        headerLabel.textContent = 'FATURA GENEL TOPLAMI';
+        totalSub.textContent = 'Stoka giren net mal maliyet toplamı';
+        totalDisplay.className = 'fs-2 fw-extrabold text-primary mb-0 font-monospace';
+        submitBtn.className = 'btn btn-primary text-white w-100 fw-bold py-2.5 mt-3 shadow-xs fs-7 touch-btn';
+        submitBtn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Faturayı Onayla ve Stokları Güncelle';
+    }
+    updateGrandTotal();
+}
+
+// SEÇENEK A: Tedarikçi Seçildiğinde Ürün Listesini Grupla ve Filtrele
+function handleSupplierChange(selectElem) {
+    const supplierId = selectElem.value;
+    updateProductSelectsGrouped(supplierId);
+    updateGrandTotal();
+}
+
+function updateProductSelectsGrouped(supplierId) {
+    document.querySelectorAll('.product-select').forEach(select => {
+        const selectedVal = select.value;
+        select.innerHTML = '';
+
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '-- Ürün Seçiniz --';
+        select.appendChild(defaultOpt);
+
+        if (!supplierId) {
+            allOriginalProductOptions.forEach(item => {
+                const opt = document.createElement('option');
+                copyOptionData(opt, item);
+                select.appendChild(opt);
+            });
+        } else {
+            const supplierGroup = document.createElement('optgroup');
+            supplierGroup.label = '⭐ Tedarikçinin Kayıtlı Ürünleri (Öncelikli)';
+
+            const otherGroup = document.createElement('optgroup');
+            otherGroup.label = '📦 Diğer Market Ürünleri';
+
+            let supplierCount = 0;
+            let otherCount = 0;
+
+            allOriginalProductOptions.forEach(item => {
+                const opt = document.createElement('option');
+                copyOptionData(opt, item);
+                if (String(item.supplierId) === String(supplierId)) {
+                    supplierGroup.appendChild(opt);
+                    supplierCount++;
+                } else {
+                    otherGroup.appendChild(opt);
+                    otherCount++;
+                }
+            });
+
+            if (supplierCount > 0) {
+                select.appendChild(supplierGroup);
+            }
+            if (otherCount > 0) {
+                select.appendChild(otherGroup);
+            }
+        }
+
+        // Önceki seçimi koru
+        if (selectedVal) {
+            select.value = selectedVal;
+        }
+    });
+}
+
+function copyOptionData(targetOpt, sourceItem) {
+    targetOpt.value = sourceItem.value;
+    targetOpt.textContent = sourceItem.text;
+    targetOpt.setAttribute('data-supplier', sourceItem.supplierId || '');
+    targetOpt.setAttribute('data-buyprice', sourceItem.buyPrice || '0.00');
+    targetOpt.setAttribute('data-vatrate', sourceItem.vatRate || '20.00');
+    targetOpt.setAttribute('data-unit', sourceItem.unit || 'Adet');
+}
+
+// HİYERARŞİK FİYAT HESAPLAMA MOTORU:
+// Birim Fiyat (Liste) * (1 - İskonto/100) * (1 + KDV/100) = Alış Maliyeti
+function calculateRowTotal(element) {
+    const row = element.closest('tr');
+    const productSelect = row.querySelector('.product-select');
+    const quantityInput = row.querySelector('.quantity-input');
+    const unitSelect = row.querySelector('.unit-select');
+    const listPriceInput = row.querySelector('.listprice-input');
+    const discountInput = row.querySelector('.discount-input');
+    const vatInput = row.querySelector('.vat-input');
+    const buyPriceInput = row.querySelector('.buyprice-input');
+    const calcBuyPriceDisplay = row.querySelector('.calc-buyprice-display');
+    const rowTotalElem = row.querySelector('.row-total');
+
+    // Eğer ürün dropdown'ı değiştiyse varsayılan birim, kdv ve fiyatı doldur
+    if (element === productSelect) {
+        const selectedOption = productSelect.options[productSelect.selectedIndex];
+        if (selectedOption && selectedOption.value) {
+            const defaultPrice = parseFloat(selectedOption.getAttribute('data-buyprice')) || 0;
+            const defaultVat = parseFloat(selectedOption.getAttribute('data-vatrate')) || 20;
+            const defaultUnit = selectedOption.getAttribute('data-unit') || 'Adet';
+
+            if (unitSelect) unitSelect.value = defaultUnit;
+            if (vatInput) vatInput.value = defaultVat.toFixed(2);
+
+            // Eğer birim fiyat boş veya 0 ise varsayılan alış fiyatını liste fiyatı olarak doldur
+            if (parseFloat(listPriceInput.value) === 0 || !listPriceInput.value) {
+                listPriceInput.value = (defaultPrice > 0 ? (defaultPrice / (1 + defaultVat/100)).toFixed(2) : '0.00');
+            }
+        }
+    }
+
+    const qty = parseFloat(quantityInput.value) || 0;
+    const listPrice = parseFloat(listPriceInput.value) || 0;
+    const discountRate = parseFloat(discountInput.value) || 0;
+    const vatRate = parseFloat(vatInput.value) || 20;
+
+    let calcBuyPrice = 0;
+    if (listPrice > 0) {
+        const discFactor = 1.0 - (discountRate / 100.0);
+        const vatFactor = 1.0 + (vatRate / 100.0);
+        calcBuyPrice = Math.round((listPrice * discFactor * vatFactor) * 100) / 100;
+    } else {
+        calcBuyPrice = parseFloat(buyPriceInput.value) || 0;
+    }
+
+    buyPriceInput.value = calcBuyPrice.toFixed(2);
+    calcBuyPriceDisplay.textContent = '₺' + calcBuyPrice.toFixed(2);
+
+    const total = qty * calcBuyPrice;
+    rowTotalElem.textContent = '₺' + total.toFixed(2);
+
+    updateGrandTotal();
+}
+
+function updateGrandTotal() {
+    let grand = 0;
+    document.querySelectorAll('#itemsBody tr').forEach(row => {
+        const qty = parseFloat(row.querySelector('.quantity-input')?.value) || 0;
+        const buyPrice = parseFloat(row.querySelector('.buyprice-input')?.value) || 0;
+        grand += (qty * buyPrice);
+    });
+
+    const display = document.getElementById('grandTotalDisplay');
+    const prefix = currentEntryType === 'IADE' ? '-' : '';
+    display.textContent = prefix + '₺' + grand.toFixed(2);
+
+    // Toptancı cari etki metni
+    const supplierSelect = document.getElementById('supplierSelect');
+    const impactElem = document.getElementById('supplierImpactDisplay');
+    if (supplierSelect.value) {
+        const opt = supplierSelect.options[supplierSelect.selectedIndex];
+        const currentBalance = parseFloat(opt.getAttribute('data-balance')) || 0;
+        if (currentEntryType === 'IADE') {
+            const newBal = currentBalance - grand;
+            impactElem.innerHTML = `Borç Etkisi: <strong class="text-danger">-${grand.toFixed(2)} TL</strong> (Yeni Bakiye: ₺${newBal.toFixed(2)})`;
+        } else {
+            const newBal = currentBalance + grand;
+            impactElem.innerHTML = `Borç Etkisi: <strong class="text-primary">+${grand.toFixed(2)} TL</strong> (Yeni Bakiye: ₺${newBal.toFixed(2)})`;
+        }
+    } else {
+        impactElem.textContent = 'Toptancı seçildiğinde bakiye etkisi burada gösterilir.';
+    }
+
+    const rowCount = document.querySelectorAll('#itemsBody tr').length;
+    document.getElementById('rowCountBadge').textContent = rowCount + ' Satır';
+}
+
+function addNewRow(productId = '', quantity = 1.0, listPrice = '0.00', discountRate = '0.00', vatRate = '20.00', unit = 'Adet') {
+    const tbody = document.getElementById('itemsBody');
+    const firstRow = tbody.querySelector('tr');
+    let optionsHtml = firstRow.querySelector('.product-select').innerHTML;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td>
+            <select name="product_id[]" class="form-select product-select" required onchange="calculateRowTotal(this)">
+                ${optionsHtml}
+            </select>
+        </td>
+        <td>
+            <input type="number" step="0.001" name="quantity[]" class="form-control quantity-input fw-bold text-center" value="${quantity}" min="0.001" required oninput="calculateRowTotal(this)">
+        </td>
+        <td>
+            <select name="unit[]" class="form-select unit-select text-center fw-semibold">
+                <option value="Adet" ${unit==='Adet'?'selected':''}>Adet</option>
+                <option value="KG" ${unit==='KG'?'selected':''}>KG</option>
+                <option value="Gram" ${unit==='Gram'?'selected':''}>Gram</option>
+                <option value="Litre" ${unit==='Litre'?'selected':''}>Litre</option>
+                <option value="Paket" ${unit==='Paket'?'selected':''}>Paket</option>
+            </select>
+        </td>
+        <td>
+            <input type="number" step="0.01" name="list_price[]" class="form-control listprice-input font-monospace fw-semibold text-end" value="${listPrice}" placeholder="0.00" title="Toptancı Liste Fiyatı" oninput="calculateRowTotal(this)">
+        </td>
+        <td>
+            <input type="number" step="0.01" name="discount_rate[]" class="form-control discount-input font-monospace text-center" value="${discountRate}" placeholder="%" title="İskonto Oranı (%)" oninput="calculateRowTotal(this)">
+        </td>
+        <td>
+            <input type="number" step="0.01" name="vat_rate[]" class="form-control vat-input font-monospace text-center" value="${vatRate}" placeholder="%" title="KDV Oranı (%)" oninput="calculateRowTotal(this)">
+        </td>
+        <td class="text-end">
+            <input type="hidden" name="buy_price[]" class="buyprice-input" value="0.00">
+            <span class="font-monospace fw-bold text-primary fs-7 calc-buyprice-display">₺0.00</span>
+        </td>
+        <td class="fw-bold text-end text-slate-900 font-monospace fs-7 row-total">₺0.00</td>
+        <td class="text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1 touch-btn" onclick="removeRow(this)" title="Satırı Sil">
+                <i class="bi bi-trash-fill fs-6"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+
+    if (productId) {
+        const select = tr.querySelector('.product-select');
+        select.value = productId;
+        calculateRowTotal(select);
+    }
+    updateGrandTotal();
+    return tr;
+}
+
+function removeRow(btn) {
+    const rows = document.querySelectorAll('#itemsBody tr');
+    if (rows.length > 1) {
+        btn.closest('tr').remove();
+        updateGrandTotal();
+    } else {
+        alert('Faturada en az 1 ürün satırı bulunmalıdır.');
+    }
+}
+
+// BARKOD OKUYUCU / EL TERMİNALİ İLE MAL KABUL SORGUSU
+function handleBarcodeScanInput() {
+    const input = document.getElementById('scanBarcodeInput');
+    const barcode = input.value.trim();
+    if (!barcode) return;
+
+    input.value = '';
+    const supplierId = document.getElementById('supplierSelect').value;
+
+    fetch(`/api/stock/barcode-search/?barcode=${encodeURIComponent(barcode)}&supplier_id=${encodeURIComponent(supplierId)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.product) {
+                const p = data.product;
+                playBeep();
+
+                // Faturada bu ürün zaten var mı kontrol et
+                let existingRow = null;
+                document.querySelectorAll('#itemsBody tr').forEach(row => {
+                    const select = row.querySelector('.product-select');
+                    if (select && String(select.value) === String(p.id)) {
+                        existingRow = row;
+                    }
+                });
+
+                if (existingRow) {
+                    const qtyInput = existingRow.querySelector('.quantity-input');
+                    qtyInput.value = (parseFloat(qtyInput.value) || 0) + 1.0;
+                    calculateRowTotal(qtyInput);
+                    existingRow.classList.add('table-success');
+                    setTimeout(() => existingRow.classList.remove('table-success'), 1200);
+                } else {
+                    const defaultVat = (p.vat_rate || 20).toFixed(2);
+                    const defaultList = (p.buy_price > 0 ? (p.buy_price / (1 + p.vat_rate/100)).toFixed(2) : '0.00');
+                    const newTr = addNewRow(p.id, 1.0, defaultList, '0.00', defaultVat, p.unit || 'Adet');
+                    newTr.classList.add('table-success');
+                    setTimeout(() => newTr.classList.remove('table-success'), 1200);
+                }
+            } else {
+                if (confirm(`'${barcode}' barkodlu ürün sistemde kayıtlı değil. Hızlıca tanımlamak ister misiniz?`)) {
+                    document.getElementById('quickBarcode').value = barcode;
+                    const quickModal = new bootstrap.Modal(document.getElementById('quickProductModal'));
+                    quickModal.show();
+                    setTimeout(() => document.getElementById('quickName').focus(), 400);
+                }
+            }
+        })
+        .catch(err => {
+            alert('Barkod okuma hatası: ' + err);
+        });
+}
+
+// Barkod inputunda Enter'a basıldığında tetikle
+document.getElementById('scanBarcodeInput')?.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        handleBarcodeScanInput();
+    }
+});
+
+// HIZLI ÜRÜN MODAL FİYAT HESAPLAMA
+function calculateQuickModalPrices() {
+    const listPrice = parseFloat(document.getElementById('quickListPrice').value) || 0;
+    const discountRate = parseFloat(document.getElementById('quickDiscountRate').value) || 0;
+    const vatRate = parseFloat(document.getElementById('quickVatRate').value) || 20;
+    const sellPrice = parseFloat(document.getElementById('quickSellPrice').value) || 0;
+
+    let buyPrice = 0;
+    if (listPrice > 0) {
+        const discFactor = 1.0 - (discountRate / 100.0);
+        const vatFactor = 1.0 + (vatRate / 100.0);
+        buyPrice = Math.round((listPrice * discFactor * vatFactor) * 100) / 100;
+    }
+
+    document.getElementById('quickBuyPriceDisplay').textContent = '₺' + buyPrice.toFixed(2);
+
+    const profitTl = sellPrice - buyPrice;
+    document.getElementById('quickProfitTl').textContent = 'Kâr: ₺' + profitTl.toFixed(2);
+
+    const percentElem = document.getElementById('quickProfitPercent');
+    if (buyPrice > 0) {
+        const margin = ((profitTl / buyPrice) * 100).toFixed(1);
+        percentElem.textContent = '%' + margin;
+        percentElem.className = profitTl >= 0 ? 'badge bg-success' : 'badge bg-danger';
+    } else {
+        percentElem.textContent = '%0';
+        percentElem.className = 'badge bg-secondary';
+    }
+}
+
+function handleQuickWeightedChange(checkbox) {
+    const unitSelect = document.getElementById('quickUnit');
+    if (checkbox.checked) {
+        unitSelect.value = 'KG';
+    } else {
+        unitSelect.value = 'Adet';
+    }
+}
+
+// Hızlı Ürün Tanımlama AJAX
+function submitQuickProduct() {
+    const barcode = document.getElementById('quickBarcode').value.trim();
+    const secondary_barcode = document.getElementById('quickSecondaryBarcode').value.trim();
+    const name = document.getElementById('quickName').value.trim();
+    const category_id = document.getElementById('quickCategory').value;
+    const supplier_id = document.getElementById('supplierSelect').value;
+    const list_price = document.getElementById('quickListPrice').value;
+    const discount_rate = document.getElementById('quickDiscountRate').value;
+    const vat_rate = document.getElementById('quickVatRate').value;
+    const sell_price = document.getElementById('quickSellPrice').value;
+    const unit = document.getElementById('quickUnit').value;
+    const is_weighted = document.getElementById('quickIsWeighted').checked;
+
+    if (!barcode || !name) {
+        alert('Lütfen barkod ve ürün adını giriniz.');
+        return;
+    }
+
+    fetch('/api/product/quick-create/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            barcode, secondary_barcode, name, category_id, supplier_id,
+            list_price, discount_rate, vat_rate, sell_price, unit, is_weighted
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const p = data.product;
+            playBeep();
+
+            allOriginalProductOptions.push({
+                value: p.id,
+                text: `${p.name} (${p.barcode}) [Stok: 0.0 ${p.unit}]`,
+                supplierId: p.supplier_id,
+                buyPrice: p.buy_price,
+                vatRate: p.vat_rate,
+                unit: p.unit
+            });
+
+            updateProductSelectsGrouped(supplier_id);
+
+            const listPStr = (p.list_price || 0).toFixed(2);
+            const discStr = (p.discount_rate || 0).toFixed(2);
+            const vatStr = (p.vat_rate || 20).toFixed(2);
+            addNewRow(p.id, 1.0, listPStr, discStr, vatStr, p.unit);
+
+            bootstrap.Modal.getInstance(document.getElementById('quickProductModal')).hide();
+            document.getElementById('quickBarcode').value = '';
+            document.getElementById('quickSecondaryBarcode').value = '';
+            document.getElementById('quickName').value = '';
+            document.getElementById('quickListPrice').value = '0.00';
+            document.getElementById('quickDiscountRate').value = '0.00';
+            document.getElementById('quickSellPrice').value = '0.00';
+            document.getElementById('quickBuyPriceDisplay').textContent = '₺0.00';
+            document.getElementById('quickIsWeighted').checked = false;
+        } else {
+            alert('Hata: ' + data.message);
+        }
+    })
+    .catch(err => {
+        alert('Sunucu hatası: ' + err);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Orijinal ürünleri önbelleğe al
+    const firstSelect = document.querySelector('#itemsBody tr .product-select');
+    if (firstSelect) {
+        Array.from(firstSelect.options).forEach(opt => {
+            if (opt.value) {
+                allOriginalProductOptions.push({
+                    value: opt.value,
+                    text: opt.textContent,
+                    supplierId: opt.getAttribute('data-supplier') || '',
+                    buyPrice: opt.getAttribute('data-buyprice') || '0.00',
+                    vatRate: opt.getAttribute('data-vatrate') || '20.00',
+                    unit: opt.getAttribute('data-unit') || 'Adet'
+                });
+            }
+        });
+    }
+
+    // 2. Eğer toptancı seçili geldiyse (üründen "Mal Al" ile gelindiyse)
+    const supplierSelect = document.getElementById('supplierSelect');
+    if (supplierSelect && supplierSelect.value) {
+        const curSelectedProduct = firstSelect ? firstSelect.value : '';
+        updateProductSelectsGrouped(supplierSelect.value);
+        if (curSelectedProduct && firstSelect) {
+            firstSelect.value = curSelectedProduct;
+        }
+    }
+
+    // 3. İlk satırı hesapla ve toplamları güncelle
+    if (firstSelect && firstSelect.value) {
+        calculateRowTotal(firstSelect);
+    } else {
+        updateGrandTotal();
+    }
+});
+</script>
+{% endblock %}

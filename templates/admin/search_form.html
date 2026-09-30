@@ -1,0 +1,39 @@
+{% load i18n static %}
+{% if cl.search_fields %}
+<div id="toolbar" class="w-100">
+  <form id="changelist-search" method="get" role="search" class="m-0">
+    <div class="input-group shadow-xs">
+      <span class="input-group-text bg-light border text-secondary px-3">
+        <i class="bi bi-search"></i>
+      </span>
+      <input type="text" 
+             name="{{ search_var }}" 
+             value="{{ cl.query }}" 
+             id="searchbar" 
+             class="form-control" 
+             placeholder="{{ cl.opts.verbose_name_plural|capfirst }} içinde hızlı arama yapın..." 
+             style="height: 38px; min-height: 38px;"
+             autofocus>
+      <button type="submit" class="btn btn-primary fw-bold text-white px-3" style="height: 38px;">
+        <i class="bi bi-search me-1"></i> Ara
+      </button>
+      {% if cl.query %}
+        <a href="?" class="btn btn-outline-secondary d-flex align-items-center px-3" title="Aramayı Temizle" style="height: 38px;">
+          <i class="bi bi-x-lg"></i>
+        </a>
+      {% endif %}
+    </div>
+    {% if show_result_count %}
+      <div class="mt-1 fs-8 text-secondary">
+        <span class="fw-semibold">{{ cl.result_count }} sonuç bulundu</span>
+        (<a href="?{% if cl.is_popup %}{{ is_popup_var }}=1{% if cl.add_facets %}&{% endif %}{% endif %}{% if cl.add_facets %}{{ is_facets_var }}{% endif %}" class="text-primary fw-bold text-decoration-none">
+          {% if cl.show_full_result_count %}{{ cl.full_result_count }} kaydın tümünü göster{% else %}Tümünü göster{% endif %}
+        </a>)
+      </div>
+    {% endif %}
+    {% for pair in cl.params.items %}
+      {% if pair.0 != search_var %}<input type="hidden" name="{{ pair.0 }}" value="{{ pair.1 }}">{% endif %}
+    {% endfor %}
+  </form>
+</div>
+{% endif %}

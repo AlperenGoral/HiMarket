@@ -1,0 +1,27 @@
+# Visual Studio & .NET Build Artifacts
+.vs/
+**/[Bb]in/
+**/[Oo]bj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Python & Django Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite3-journal
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# OS & Environment
+Thumbs.db
+[Dd]esktop.ini
+.DS_Store
+.env
+.venv
+env/
+venv/

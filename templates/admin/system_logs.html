@@ -1,0 +1,102 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom">
+        <div>
+            <h1 class="h3 fw-bold text-slate-900 mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-journal-text text-primary"></i> SİSTEM İŞLEM VE DENETİM LOGLARI
+            </h1>
+            <span class="text-secondary small fw-medium">Kasa satışları, vardiya kapanışları, stok irsaliyeleri ve toptancı cari işlemlerinin otomatik kayıtları.</span>
+        </div>
+    </div>
+
+    <!-- ARAMA VE FİLTRE ÇUBUĞU -->
+    <form method="get" class="tabler-card mb-3 py-2 px-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border"><i class="bi bi-search text-secondary"></i></span>
+                    <input type="text" name="q" class="form-control" placeholder="İşlem adı veya detay mesajı ara..." value="{{ query }}">
+                </div>
+            </div>
+            <div class="col-12 col-md-3">
+                <select name="module" class="form-select">
+                    <option value="">-- Tüm Modüller --</option>
+                    {% for m_code, m_label in modules %}
+                        <option value="{{ m_code }}" {% if selected_module == m_code %}selected{% endif %}>{{ m_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <select name="level" class="form-select">
+                    <option value="">-- Tüm Seviyeler --</option>
+                    {% for l_code, l_label in levels %}
+                        <option value="{{ l_code }}" {% if selected_level == l_code %}selected{% endif %}>{{ l_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-2 d-flex gap-1">
+                <button type="submit" class="btn btn-primary fw-bold w-100">Filtrele</button>
+                {% if query or selected_module or selected_level %}
+                    <a href="{% url 'system_logs_view' %}" class="btn btn-light border" title="Filtreyi Temizle"><i class="bi bi-x-lg"></i></a>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+
+    <!-- LOG TABLOSU -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold text-slate-900">İŞLEM KAYITLARI (Son {{ logs.count }} Kayıt)</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table mb-0 fs-8 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-3" style="width: 160px;">Tarih / Saat</th>
+                        <th style="width: 90px;">Seviye</th>
+                        <th style="width: 130px;">Modül</th>
+                        <th style="width: 220px;">İşlem</th>
+                        <th>Detay Açıklama</th>
+                        <th class="text-end pe-3" style="width: 120px;">Kullanıcı</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                        <tr>
+                            <td class="ps-3 font-monospace text-slate-600">{{ log.created_at|date:"d.m.Y H:i:s" }}</td>
+                            <td>
+                                {% if log.level == 'WARNING' %}
+                                    <span class="badge bg-warning text-dark px-2 py-0.5">UYARI</span>
+                                {% elif log.level == 'ERROR' %}
+                                    <span class="badge bg-danger text-white px-2 py-0.5">HATA</span>
+                                {% elif log.level == 'SECURITY' %}
+                                    <span class="badge bg-dark text-white px-2 py-0.5">GÜVENLİK</span>
+                                {% else %}
+                                    <span class="badge bg-secondary text-white px-2 py-0.5">BİLGİ</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge bg-primary text-white px-2 py-0.5">{{ log.get_module_display }}</span></td>
+                            <td class="fw-bold text-slate-900">{{ log.action }}</td>
+                            <td class="text-slate-700">{{ log.message }}</td>
+                            <td class="text-end pe-3 font-monospace fw-semibold text-slate-700">
+                                {% if log.user %}
+                                    <i class="bi bi-person-fill text-primary me-0.5"></i> {{ log.user.username }}
+                                {% else %}
+                                    <span class="text-secondary">Sistem</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-secondary">Kriterlere uygun sistem logu bulunamadı.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

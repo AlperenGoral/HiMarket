@@ -1,0 +1,1012 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | Hİ MARKET Yönetim Paneli{% endblock %}
+
+{% block branding %}
+<div id="site-name" class="d-flex align-items-center gap-2">
+    <button type="button" class="btn btn-light border text-slate-800 p-0 me-1 d-inline-flex align-items-center justify-content-center" id="touchSidebarToggle" onclick="toggleTouchSidebar()" style="width: 42px; height: 42px; min-width: 42px;" title="Menüyü Aç / Kapat">
+        <i class="bi bi-list fs-3"></i>
+    </button>
+    <a href="{% url 'admin_dashboard' %}" class="fw-bold text-decoration-none text-primary fs-5 d-flex align-items-center gap-2">
+        <span class="badge bg-primary text-white p-2 rounded-2"><i class="bi bi-shop"></i> Hİ MARKET</span>
+        <span class="text-slate-900 fs-6 fw-bold d-none d-sm-inline">YÖNETİM KONTROL PANELİ</span>
+    </a>
+</div>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<!-- Bootstrap 5.3 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<!-- Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Chart.js (Grafikler İçin) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- Bootstrap 5.3 JS Bundle (Modalların ve Açılır Pencerelerin Çalışması İçin) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<style>
+    /* =========================================================
+       Hİ MARKET YÖNETİM PANELİ - TABLER UI & ADMINLTE V4 HİBRİT TEMA
+       Yüksek Kontrastlı, Düzgün Hizalı, Nizami Tipografi & Renkler
+       ========================================================= */
+    :root {
+        --sidebar-w: 240px;
+        --header-h: 60px;
+        --text-main: #0f172a;       /* Slate-900: Simsiyah/koyu metin */
+        --text-secondary: #334155;  /* Slate-700: Net okunur ikinci metin */
+        --text-muted: #475569;      /* Slate-600: Gri ama yüksek kontrastlı */
+        --border-color: #cbd5e1;    /* Slate-300: Belirgin çizgi rengi */
+        --card-bg: #ffffff;
+        --body-bg: #f8fafc;
+        --primary-blue: #1d4ed8;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+        font-size: 0.875rem !important; /* 14px */
+        color: var(--text-main) !important;
+        background-color: var(--body-bg) !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow-x: hidden !important;
+    }
+
+    /* DJANGO VARSAYILAN KAPLAYICI SIFIRLAMA (TAŞMA VE ÇİFT MARGİN ENGELİ) */
+    #container {
+        width: 100% !important;
+        min-height: 100vh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        position: relative !important;
+        background-color: var(--body-bg) !important;
+    }
+
+    /* ÜST SABİT BAŞLIK (HEADER) */
+    #header {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        height: var(--header-h) !important;
+        z-index: 1040 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 0 24px !important;
+        background-color: #ffffff !important;
+        border-bottom: 1px solid var(--border-color) !important;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+        margin: 0 !important;
+    }
+
+    #branding {
+        display: flex;
+        align-items: center;
+    }
+
+    #user-tools {
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        color: var(--text-secondary) !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+    }
+
+    #user-tools a:not(.btn) {
+        color: var(--primary-blue) !important;
+        text-decoration: none !important;
+        font-weight: 600 !important;
+    }
+
+    #user-tools a:not(.btn):hover {
+        text-decoration: underline !important;
+    }
+
+    /* KESİN BUTON METİN VE ARKA PLAN KONTRAST KURALLARI */
+    .btn, a.btn, button.btn {
+        text-decoration: none !important;
+        font-weight: 600 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .btn-primary, a.btn-primary, button.btn-primary,
+    .btn-primary:visited, a.btn-primary:visited,
+    .btn-primary:hover, a.btn-primary:hover,
+    .btn-primary:focus, a.btn-primary:focus,
+    .btn-primary:active, a.btn-primary:active {
+        color: #ffffff !important;
+        background-color: #1d4ed8 !important;
+        border-color: #1d4ed8 !important;
+    }
+
+    .btn-success, a.btn-success, button.btn-success,
+    .btn-success:visited, a.btn-success:visited,
+    .btn-success:hover, a.btn-success:hover,
+    .btn-success:focus, a.btn-success:focus,
+    .btn-success:active, a.btn-success:active {
+        color: #ffffff !important;
+        background-color: #15803d !important;
+        border-color: #15803d !important;
+    }
+
+    .btn-danger, a.btn-danger, button.btn-danger,
+    .btn-danger:visited, a.btn-danger:visited,
+    .btn-danger:hover, a.btn-danger:hover,
+    .btn-danger:focus, a.btn-danger:focus,
+    .btn-danger:active, a.btn-danger:active {
+        color: #ffffff !important;
+        background-color: #dc2626 !important;
+        border-color: #dc2626 !important;
+    }
+
+    .btn-warning, a.btn-warning, button.btn-warning,
+    .btn-warning:visited, a.btn-warning:visited,
+    .btn-warning:hover, a.btn-warning:hover,
+    .btn-warning:focus, a.btn-warning:focus,
+    .btn-warning:active, a.btn-warning:active {
+        color: #0f172a !important;
+        background-color: #f59e0b !important;
+        border-color: #d97706 !important;
+    }
+
+    .btn-outline-primary, a.btn-outline-primary, button.btn-outline-primary,
+    .btn-outline-primary:visited, a.btn-outline-primary:visited {
+        color: #1d4ed8 !important;
+        background-color: #ffffff !important;
+        border: 1.5px solid #1d4ed8 !important;
+    }
+
+    .btn-outline-primary:hover, a.btn-outline-primary:hover, button.btn-outline-primary:hover {
+        color: #ffffff !important;
+        background-color: #1d4ed8 !important;
+        border-color: #1d4ed8 !important;
+    }
+
+    .btn-outline-success, a.btn-outline-success, button.btn-outline-success,
+    .btn-outline-success:visited, a.btn-outline-success:visited {
+        color: #15803d !important;
+        background-color: #ffffff !important;
+        border: 1.5px solid #15803d !important;
+    }
+
+    .btn-outline-success:hover, a.btn-outline-success:hover, button.btn-outline-success:hover {
+        color: #ffffff !important;
+        background-color: #15803d !important;
+        border-color: #15803d !important;
+    }
+
+    .btn-outline-danger, a.btn-outline-danger, button.btn-outline-danger,
+    .btn-outline-danger:visited, a.btn-outline-danger:visited {
+        color: #dc2626 !important;
+        background-color: #ffffff !important;
+        border: 1.5px solid #dc2626 !important;
+    }
+
+    .btn-outline-danger:hover, a.btn-outline-danger:hover, button.btn-outline-danger:hover {
+        color: #ffffff !important;
+        background-color: #dc2626 !important;
+        border-color: #dc2626 !important;
+    }
+
+    .btn-outline-secondary, a.btn-outline-secondary, button.btn-outline-secondary,
+    .btn-outline-secondary:visited, a.btn-outline-secondary:visited {
+        color: #334155 !important;
+        background-color: #ffffff !important;
+        border: 1.5px solid #cbd5e1 !important;
+    }
+
+    .btn-outline-secondary:hover, a.btn-outline-secondary:hover, button.btn-outline-secondary:hover {
+        color: #0f172a !important;
+        background-color: #f1f5f9 !important;
+        border-color: #94a3b8 !important;
+    }
+
+    /* DOKUNMATİK EKRAN VE MOBİL BUTON OPTİMİZASYONLARI */
+    .touch-btn {
+        min-height: 42px !important;
+        touch-action: manipulation !important;
+        user-select: none !important;
+        cursor: pointer !important;
+        transition: transform 0.08s ease, background-color 0.15s ease !important;
+    }
+    .touch-btn:active {
+        transform: scale(0.97) !important;
+        filter: brightness(0.92) !important;
+    }
+
+    /* DJANGO ADMIN STANDART FORMLARI VE BUTONLARI */
+    .submit-row {
+        background-color: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
+        padding: 12px 16px !important;
+        display: flex !important;
+        gap: 8px !important;
+        align-items: center !important;
+    }
+    .submit-row input, input[type="submit"], input[type="button"], .button {
+        font-weight: 700 !important;
+        border-radius: 6px !important;
+        padding: 8px 18px !important;
+        cursor: pointer !important;
+        font-size: 0.85rem !important;
+        border: none !important;
+        text-transform: none !important;
+    }
+    .submit-row input.default, input[type="submit"].default, input[type="submit"][name="_save"] {
+        background-color: #1d4ed8 !important;
+        color: #ffffff !important;
+    }
+    .submit-row input.default:hover, input[type="submit"].default:hover, input[type="submit"][name="_save"]:hover {
+        background-color: #1e40af !important;
+        color: #ffffff !important;
+    }
+    .submit-row input:not(.default):not(.deletelink) {
+        background-color: #475569 !important;
+        color: #ffffff !important;
+    }
+    .submit-row input:not(.default):not(.deletelink):hover {
+        background-color: #334155 !important;
+        color: #ffffff !important;
+    }
+    .submit-row a.deletelink {
+        background-color: #dc2626 !important;
+        color: #ffffff !important;
+        border-radius: 6px !important;
+        padding: 8px 18px !important;
+        font-weight: 700 !important;
+        text-decoration: none !important;
+        display: inline-flex !important;
+        align-items: center !important;
+    }
+    .submit-row a.deletelink:hover {
+        background-color: #b91c1c !important;
+        color: #ffffff !important;
+    }
+    #changelist-search input[type="submit"] {
+        background-color: #1d4ed8 !important;
+        color: #ffffff !important;
+        border-radius: 6px !important;
+    }
+
+    /* SOL SABİT GEZİNTİ MENÜSÜ (SIDEBAR) */
+    .himarket-sidebar {
+        position: fixed !important;
+        top: var(--header-h) !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        width: var(--sidebar-w) !important;
+        background-color: #ffffff !important;
+        border-right: 1px solid var(--border-color) !important;
+        overflow-y: auto !important;
+        z-index: 1030 !important;
+        padding: 12px 0 32px 0 !important;
+        margin: 0 !important;
+        transition: transform 0.22s ease-in-out !important;
+    }
+
+    .sidebar-section-title {
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #475569;
+        padding: 12px 18px 4px 18px;
+        letter-spacing: 0.7px;
+    }
+
+    .himarket-nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 18px;
+        color: #1e293b;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-decoration: none;
+        border-left: 3px solid transparent;
+        transition: all 0.15s ease;
+        touch-action: manipulation;
+    }
+
+    .himarket-nav-item:hover {
+        background-color: #f1f5f9;
+        color: var(--primary-blue);
+        border-left-color: var(--primary-blue);
+    }
+
+    .himarket-nav-item.active {
+        background-color: #eff6ff;
+        color: var(--primary-blue);
+        border-left-color: var(--primary-blue);
+        font-weight: 700;
+    }
+
+    .himarket-nav-item i {
+        font-size: 1.05rem;
+    }
+
+    /* ANA İÇERİK ALANI (MAIN CONTENT) */
+    #main, .main {
+        margin-left: var(--sidebar-w) !important;
+        margin-top: var(--header-h) !important;
+        padding: 0 !important;
+        width: calc(100% - var(--sidebar-w)) !important;
+        max-width: calc(100% - var(--sidebar-w)) !important;
+        min-height: calc(100vh - var(--header-h)) !important;
+        background-color: var(--body-bg) !important;
+        display: block !important;
+        box-sizing: border-box !important;
+        transition: margin-left 0.22s ease-in-out, width 0.22s ease-in-out !important;
+    }
+
+    /* MENÜ KAPALI MODU (SIDEBAR COLLAPSED) */
+    body.sidebar-collapsed .himarket-sidebar {
+        transform: translateX(-100%) !important;
+    }
+
+    body.sidebar-collapsed #main,
+    body.sidebar-collapsed .main,
+    body.sidebar-collapsed div.breadcrumbs,
+    body.sidebar-collapsed nav[aria-label="Breadcrumbs"] {
+        margin-left: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    #content, .content, #content-main {
+        padding: 24px 28px !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* DJANGO NATIVE SIDEBAR GİZLE (ÇAKIŞMAYI ÖNLE) */
+    #nav-sidebar, .nav-sidebar, button.nav-sidebar-toggle {
+        display: none !important;
+    }
+
+    /* BREADCRUMBS */
+    div.breadcrumbs, nav[aria-label="Breadcrumbs"] {
+        margin: var(--header-h) 0 0 var(--sidebar-w) !important;
+        width: calc(100% - var(--sidebar-w)) !important;
+        padding: 10px 28px !important;
+        background: #ffffff !important;
+        border-bottom: 1px solid var(--border-color) !important;
+        font-size: 0.8rem !important;
+        font-weight: 600 !important;
+        color: #475569 !important;
+    }
+
+    div.breadcrumbs a {
+        color: var(--primary-blue) !important;
+        text-decoration: none !important;
+    }
+
+    /* NİZAMİ VE OKUNAKLI TİPOGRAFİ */
+    h1, .h1 { font-size: 1.35rem !important; font-weight: 700 !important; color: var(--text-main) !important; }
+    h2, .h2 { font-size: 1.2rem !important; font-weight: 700 !important; color: var(--text-main) !important; }
+    h3, .h3 { font-size: 1.05rem !important; font-weight: 700 !important; color: var(--text-main) !important; }
+    h4, .h4 { font-size: 0.95rem !important; font-weight: 700 !important; color: var(--text-main) !important; }
+    h5, .h5 { font-size: 0.9rem !important; font-weight: 700 !important; color: var(--text-main) !important; }
+    h6, .h6 { font-size: 0.85rem !important; font-weight: 700 !important; color: var(--text-main) !important; }
+
+    /* KART VE MODÜLLER */
+    .tabler-card, .card {
+        background: #ffffff !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+    }
+
+    .tabler-card {
+        padding: 16px 20px !important;
+    }
+
+    .card-header {
+        background-color: #ffffff !important;
+        border-bottom: 1px solid var(--border-color) !important;
+        padding: 12px 18px !important;
+        font-weight: 700 !important;
+        font-size: 0.9rem !important;
+        color: var(--text-main) !important;
+    }
+
+    /* TABLOLAR - YÜKSEK KONTRAST */
+    .table {
+        color: var(--text-main) !important;
+        border-collapse: collapse !important;
+    }
+
+    .table thead th {
+        background-color: #f1f5f9 !important;
+        color: #1e293b !important;
+        font-weight: 700 !important;
+        font-size: 0.8rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        border-bottom: 2px solid var(--border-color) !important;
+        padding: 10px 14px !important;
+    }
+
+    .table tbody td {
+        padding: 10px 14px !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        font-size: 0.85rem !important;
+        vertical-align: middle !important;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: #f8fafc !important;
+    }
+
+    /* FORM ELEMANLARI (YAZILARIN KESİLMESİNİ ENGELLEYEN NİZAMİ BOYUTLAR) */
+    .form-control, .form-select,
+    input[type="text"], input[type="password"], input[type="email"], 
+    input[type="url"], input[type="number"], input[type="tel"], 
+    select, textarea, .vTextField {
+        height: auto !important;
+        min-height: 40px !important;
+        line-height: 1.5 !important;
+        padding: 8px 12px !important;
+        font-size: 0.88rem !important;
+        color: var(--text-main) !important;
+        background-color: #ffffff !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 6px !important;
+        box-sizing: border-box !important;
+    }
+
+    select.form-select, select {
+        height: 42px !important;
+        min-height: 42px !important;
+        line-height: 1.5 !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+        padding-right: 32px !important;
+    }
+
+    textarea.form-control, textarea {
+        min-height: 72px !important;
+        height: auto !important;
+    }
+
+    .form-control:focus, .form-select:focus,
+    input:focus, select:focus, textarea:focus {
+        border-color: var(--primary-blue) !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+        outline: none !important;
+    }
+
+    .form-label {
+        font-size: 0.82rem !important;
+        font-weight: 700 !important;
+        color: var(--text-secondary) !important;
+        margin-bottom: 5px !important;
+    }
+
+    /* =========================================================
+       EVRENSEL KONTRAST VE OKUNABİLİRLİK KURALLARI (ZERO INVISIBLE TEXT)
+       ========================================================= */
+    .text-slate-900 { color: #0f172a !important; }
+    .text-slate-800 { color: #1e293b !important; }
+    .text-slate-700 { color: #334155 !important; }
+    .text-slate-600 { color: #475569 !important; }
+    .text-slate-500 { color: #64748b !important; }
+    .text-slate-400 { color: #94a3b8 !important; }
+
+    .bg-slate-50  { background-color: #f8fafc !important; }
+    .bg-slate-100 { background-color: #f1f5f9 !important; }
+    .bg-slate-200 { background-color: #e2e8f0 !important; }
+    .bg-slate-800 { background-color: #1e293b !important; }
+    .bg-slate-900 { background-color: #0f172a !important; }
+
+    .border-slate-200 { border-color: #e2e8f0 !important; }
+    .border-slate-300 { border-color: #cbd5e1 !important; }
+    .border-slate-700 { border-color: #334155 !important; }
+
+    .fs-7 { font-size: 0.825rem !important; }
+    .fs-8 { font-size: 0.75rem !important; }
+    .fs-9 { font-size: 0.685rem !important; }
+
+    /* ROBUST ROZETLER (BADGES) */
+    .badge {
+        font-weight: 700 !important;
+        letter-spacing: 0.3px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        vertical-align: middle !important;
+    }
+
+    /* AÇIK RENKLİ ROZETLERDE ASLA BEYAZ YAZI KALMAMASINI GARANTİLE */
+    .badge.bg-light,
+    .badge.bg-white,
+    .badge.bg-slate-50,
+    .badge.bg-slate-100,
+    .badge.bg-slate-200,
+    .badge.border:not(.bg-primary):not(.bg-success):not(.bg-danger):not(.bg-dark):not(.bg-secondary) {
+        color: #0f172a !important; /* Simsiyah/Koyu metin */
+        background-color: #f1f5f9 !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+
+    .badge.bg-secondary-subtle {
+        background-color: #f1f5f9 !important;
+        color: #1e293b !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+
+    .badge.bg-primary-subtle {
+        background-color: #eff6ff !important;
+        color: #1d4ed8 !important;
+        border: 1px solid #bfdbfe !important;
+    }
+
+    .badge.bg-success-subtle {
+        background-color: #f0fdf4 !important;
+        color: #15803d !important;
+        border: 1px solid #bbf7d0 !important;
+    }
+
+    .badge.bg-warning-subtle {
+        background-color: #fffbeb !important;
+        color: #b45309 !important;
+        border: 1px solid #fde68a !important;
+    }
+
+    .badge.bg-danger-subtle {
+        background-color: #fef2f2 !important;
+        color: #b91c1c !important;
+        border: 1px solid #fecaca !important;
+    }
+
+    .badge.bg-info-subtle {
+        background-color: #f0f9ff !important;
+        color: #0369a1 !important;
+        border: 1px solid #bae6fd !important;
+    }
+
+    .badge [class*="text-slate"],
+    .badge.text-slate-700,
+    .badge.text-slate-800,
+    .badge.text-slate-900 {
+        color: #0f172a !important;
+    }
+
+    .badge-danger-solid {
+        background-color: #dc2626 !important;
+        color: #ffffff !important;
+    }
+
+    .badge-success-solid {
+        background-color: #16a34a !important;
+        color: #ffffff !important;
+    }
+
+    .badge-warning-solid {
+        background-color: #d97706 !important;
+        color: #ffffff !important;
+    }
+
+    .badge-primary-solid {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+    }
+
+    .badge-debt {
+        background-color: #fee2e2 !important;
+        color: #991b1b !important;
+        border: 1px solid #f87171 !important;
+    }
+
+    .badge-credit {
+        background-color: #dcfce7 !important;
+        color: #166534 !important;
+        border: 1px solid #86efac !important;
+    }
+
+    /* Dokunmatik Ekran Temel Kuralları */
+    html, body, button, .btn, input, select {
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: transparent !important;
+    }
+
+    .btn:active, button:active, .himarket-nav-item:active {
+        transform: scale(0.97) !important;
+        filter: brightness(0.95) !important;
+        transition: transform 0.05s ease-out !important;
+    }
+
+    /* MOBİL VE KÜÇÜK EKRAN UYUMU */
+    @media (max-width: 991px) {
+        .himarket-sidebar {
+            position: fixed !important;
+            width: 260px !important;
+            top: var(--header-h) !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            box-shadow: 4px 0 16px rgba(15, 23, 42, 0.15) !important;
+            transform: translateX(-100%) !important;
+            z-index: 1060 !important;
+        }
+        body.sidebar-open-mobile .himarket-sidebar {
+            transform: translateX(0) !important;
+        }
+        #main, .main, div.breadcrumbs {
+            margin-left: 0 !important;
+            width: 100% !important;
+        }
+    }
+
+    /* =========================================================
+       SİSTEM VERİLERİ (CHANGELIST) MODERN TABLER/BOOTSTRAP STİLLERİ
+       ========================================================= */
+    #changelist {
+        width: 100% !important;
+        margin: 0 !important;
+        border: none !important;
+        background: transparent !important;
+    }
+    #changelist .changelist-form-container {
+        display: block !important;
+        width: 100% !important;
+    }
+    #changelist .changelist-form-container > div,
+    #changelist .changelist-form-container:has(#changelist-filter) > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+    #changelist-filter {
+        display: none !important; /* Standart dikey süzgeci gizle, özel yatay süzgeç kartını kullan */
+    }
+    #changelist .results {
+        overflow-x: auto !important;
+        width: 100% !important;
+        background-color: #ffffff !important;
+    }
+    #changelist table,
+    #result_list {
+        width: 100% !important;
+        margin-bottom: 0 !important;
+        border-collapse: collapse !important;
+        background-color: #ffffff !important;
+        color: var(--text-main) !important;
+    }
+    #result_list thead th {
+        background-color: #f1f5f9 !important;
+        color: #1e293b !important;
+        font-weight: 700 !important;
+        font-size: 0.8rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        border-bottom: 2px solid #cbd5e1 !important;
+        border-top: none !important;
+        padding: 10px 14px !important;
+        vertical-align: middle !important;
+        white-space: nowrap !important;
+    }
+    #result_list thead th a {
+        color: #1e293b !important;
+        text-decoration: none !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+    }
+    #result_list thead th a:hover {
+        color: var(--primary-blue) !important;
+    }
+    #result_list tbody tr {
+        border-bottom: 1px solid #e2e8f0 !important;
+        transition: background-color 0.12s ease !important;
+    }
+    #result_list tbody tr:hover {
+        background-color: #f8fafc !important;
+    }
+    #result_list tbody tr:last-child {
+        border-bottom: none !important;
+    }
+    #result_list tbody th,
+    #result_list tbody td {
+        padding: 11px 14px !important;
+        font-size: 0.86rem !important;
+        vertical-align: middle !important;
+        color: #1e293b !important;
+    }
+    #result_list tbody th a,
+    #result_list tbody td a {
+        color: var(--primary-blue) !important;
+        font-weight: 600 !important;
+        text-decoration: none !important;
+    }
+    #result_list tbody th a:hover,
+    #result_list tbody td a:hover {
+        text-decoration: underline !important;
+    }
+    #result_list th.action-checkbox-column,
+    #result_list td.action-checkbox {
+        width: 40px !important;
+        min-width: 40px !important;
+        text-align: center !important;
+        padding: 8px 10px !important;
+    }
+    #result_list input[type="checkbox"],
+    #action-toggle {
+        width: 18px !important;
+        height: 18px !important;
+        cursor: pointer !important;
+        accent-color: #1d4ed8 !important;
+        margin: 0 auto !important;
+        vertical-align: middle !important;
+    }
+    .actions {
+        background-color: #f8fafc !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        padding: 10px 16px !important;
+    }
+    .actions label {
+        font-size: 0.82rem !important;
+        font-weight: 700 !important;
+        color: #334155 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin: 0 !important;
+    }
+    .actions select {
+        height: 36px !important;
+        min-height: 36px !important;
+        font-size: 0.84rem !important;
+        font-weight: 600 !important;
+        padding: 4px 30px 4px 10px !important;
+        border-radius: 6px !important;
+        border: 1px solid #cbd5e1 !important;
+        background-color: #ffffff !important;
+        color: #1e293b !important;
+    }
+    .pagination-container a,
+    .pagination-container span {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-width: 32px !important;
+        height: 32px !important;
+        padding: 0 8px !important;
+        font-size: 0.82rem !important;
+        font-weight: 600 !important;
+        border-radius: 6px !important;
+        text-decoration: none !important;
+    }
+    .pagination-container a {
+        background-color: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #334155 !important;
+    }
+    .pagination-container a:hover {
+        background-color: #f1f5f9 !important;
+        color: var(--primary-blue) !important;
+    }
+    .pagination-container .this-page {
+        background-color: #1d4ed8 !important;
+        color: #ffffff !important;
+        border: 1px solid #1d4ed8 !important;
+        font-weight: 700 !important;
+    }
+    .himarket-filter-card {
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        transition: box-shadow 0.15s ease !important;
+    }
+    .himarket-filter-card:hover {
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06) !important;
+    }
+
+    /* FORM & CHANGE_FORM MODERNLEŞTİRME */
+    fieldset.module {
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        padding: 20px !important;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+        margin-bottom: 20px !important;
+    }
+    fieldset.module h2 {
+        background: #f8fafc !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        padding: 12px 18px !important;
+        margin: -20px -20px 16px -20px !important;
+        border-radius: 8px 8px 0 0 !important;
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+        color: #1e293b !important;
+    }
+    .form-row {
+        padding: 10px 0 !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+    }
+    .form-row:last-child {
+        border-bottom: none !important;
+    }
+    .form-row label {
+        min-width: 170px !important;
+        font-weight: 700 !important;
+        font-size: 0.84rem !important;
+        color: #334155 !important;
+    }
+
+
+    /* GİRİŞ YAPILMAMIŞSA MENÜLERİ VE BAŞLIĞI GİZLE */
+    {% if not user.is_authenticated %}
+    #header, .himarket-sidebar, #touchSidebarToggle {
+        display: none !important;
+    }
+    #main, .main, div.breadcrumbs {
+        margin-left: 0 !important;
+        margin-top: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    {% endif %}
+</style>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block content_title %}{% endblock %}
+
+{% block header %}
+{% if user.is_authenticated %}
+<!-- ÜST SABİT BAŞLIK -->
+<header id="header">
+    <div id="branding" class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-light border text-slate-800 p-0 me-1 d-inline-flex align-items-center justify-content-center" id="touchSidebarToggle" onclick="toggleTouchSidebar()" style="width: 42px; height: 42px; min-width: 42px;" title="Menüyü Aç / Kapat">
+            <i class="bi bi-list fs-3"></i>
+        </button>
+        <a href="{% url 'admin_dashboard' %}" class="fw-bold text-decoration-none d-flex align-items-center gap-2">
+            <span class="badge bg-primary text-white p-2 rounded-2"><i class="bi bi-shop"></i> Hİ MARKET</span>
+            <span class="text-slate-900 fs-6 fw-bold d-none d-sm-inline">YÖNETİM KONTROL PANELİ</span>
+        </a>
+    </div>
+
+    <div id="user-tools" class="d-flex align-items-center gap-3">
+        <a href="{% url 'pos_screen' %}" target="_blank" class="btn btn-sm btn-success fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-2 text-white">
+            <i class="bi bi-cart4"></i> CANLI POS KASASINA GİT
+        </a>
+        <span class="text-slate-700 fw-semibold d-none d-md-inline">
+            <i class="bi bi-person-circle text-primary me-1"></i> {{ user.get_full_name|default:user.username|default:"Yönetici" }}
+        </span>
+        <a href="{% url 'logout_view' %}" class="btn btn-sm btn-outline-danger fw-bold px-2.5 py-1 text-decoration-none">
+            <i class="bi bi-box-arrow-right"></i> Çıkış
+        </a>
+    </div>
+</header>
+
+<!-- SOL GEZİNTİ MENÜSÜ (SIDEBAR) -->
+<aside class="himarket-sidebar">
+    <div class="sidebar-section-title">GENEL PANEL</div>
+    <a href="{% url 'admin_dashboard' %}" class="himarket-nav-item {% if request.path == '/management/dashboard/' or request.path == '/admin/' %}active{% endif %}">
+        <i class="bi bi-speedometer2 text-primary"></i>
+        <span>Gösterge Paneli</span>
+    </a>
+    <a href="{% url 'pos_screen' %}" target="_blank" class="himarket-nav-item text-success fw-bold">
+        <i class="bi bi-cart-check-fill text-success"></i>
+        <span>Canlı POS Kasa Satış</span>
+        <i class="bi bi-box-arrow-up-right ms-auto fs-7"></i>
+    </a>
+
+    <div class="sidebar-section-title">ÜRÜN YÖNETİMİ</div>
+    <a href="{% url 'product_catalog_view' %}" class="himarket-nav-item {% if request.path == '/management/products/' %}active{% endif %}">
+        <i class="bi bi-grid-3x3-gap-fill text-warning"></i>
+        <span>Ürün Kataloğu</span>
+    </a>
+    <a href="{% url 'product_create_view' %}" class="himarket-nav-item {% if request.path == '/management/products/create/' %}active{% endif %}">
+        <i class="bi bi-plus-circle-fill text-success"></i>
+        <span>Yeni Ürün Tanımla</span>
+    </a>
+
+    <div class="sidebar-section-title">STOK & İRSALİYE</div>
+    <a href="{% url 'stock_entry_list' %}" class="himarket-nav-item {% if request.path == '/management/stock-entry/' %}active{% endif %}">
+        <i class="bi bi-card-checklist text-info"></i>
+        <span>Stok Hareketleri & Fişler</span>
+    </a>
+    <a href="{% url 'stock_entry_create' %}" class="himarket-nav-item {% if request.path == '/management/stock-entry/create/' %}active{% endif %}">
+        <i class="bi bi-box-arrow-in-down text-primary"></i>
+        <span>Yeni Mal Kabul / İade</span>
+    </a>
+
+    <div class="sidebar-section-title">TEDARİKÇİ CARİLERİ</div>
+    <a href="{% url 'supplier_list_view' %}" class="himarket-nav-item {% if '/management/suppliers/' in request.path %}active{% endif %}">
+        <i class="bi bi-truck text-primary"></i>
+        <span>Toptancı Carileri</span>
+    </a>
+
+    <div class="sidebar-section-title">RAPOR & DENETİM</div>
+    <a href="{% url 'z_report_view' %}" target="_blank" class="himarket-nav-item">
+        <i class="bi bi-file-earmark-bar-graph-fill text-danger"></i>
+        <span>Gün Sonu (Z Raporu)</span>
+        <i class="bi bi-box-arrow-up-right ms-auto fs-7"></i>
+    </a>
+    <a href="{% url 'system_logs_view' %}" class="himarket-nav-item {% if request.path == '/management/logs/' %}active{% endif %}">
+        <i class="bi bi-journal-text text-dark"></i>
+        <span>Sistem İşlem Logları</span>
+    </a>
+
+    <div class="sidebar-section-title">SİSTEM VERİLERİ</div>
+    <a href="{% url 'admin:pos_app_category_changelist' %}" class="himarket-nav-item {% if '/pos_app/category/' in request.path %}active{% endif %}">
+        <i class="bi bi-tags-fill text-warning"></i>
+        <span>Kategoriler</span>
+    </a>
+    <a href="{% url 'admin:pos_app_sale_changelist' %}" class="himarket-nav-item {% if '/pos_app/sale/' in request.path %}active{% endif %}">
+        <i class="bi bi-receipt text-success"></i>
+        <span>Satış Fişleri</span>
+    </a>
+    <a href="{% url 'admin:pos_app_shift_changelist' %}" class="himarket-nav-item {% if '/pos_app/shift/' in request.path %}active{% endif %}">
+        <i class="bi bi-clock-history text-primary"></i>
+        <span>Kasa Vardiyaları</span>
+    </a>
+    <a href="{% url 'admin:auth_user_changelist' %}" class="himarket-nav-item {% if '/auth/user/' in request.path %}active{% endif %}">
+        <i class="bi bi-people-fill text-info"></i>
+        <span>Kullanıcı & Kasiyerler</span>
+    </a>
+    <a href="http://localhost:5000/swagger" target="_blank" class="himarket-nav-item">
+        <i class="bi bi-code-square text-dark"></i>
+        <span>C# API Swagger</span>
+        <i class="bi bi-box-arrow-up-right ms-auto fs-7"></i>
+    </a>
+</aside>
+{% endif %}
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<script>
+    function toggleTouchSidebar() {
+        if (window.innerWidth < 992) {
+            document.body.classList.toggle('sidebar-open-mobile');
+        } else {
+            document.body.classList.toggle('sidebar-collapsed');
+            var isCollapsed = document.body.classList.contains('sidebar-collapsed');
+            try {
+                localStorage.setItem('himarket_sidebar_collapsed', isCollapsed ? '1' : '0');
+            } catch(e) {}
+        }
+    }
+
+    // Mobil menü açıkken dışarı dokunulduğunda kapat
+    document.addEventListener('click', function(e) {
+        if (window.innerWidth < 992 && document.body.classList.contains('sidebar-open-mobile')) {
+            var sidebar = document.querySelector('.himarket-sidebar');
+            var toggleBtn = document.getElementById('touchSidebarToggle');
+            if (sidebar && !sidebar.contains(e.target) && toggleBtn && !toggleBtn.contains(e.target)) {
+                document.body.classList.remove('sidebar-open-mobile');
+            }
+        }
+    });
+
+    // Sayfa ilk yüklendiğinde kullanıcının masaüstü tercihini uygula
+    (function() {
+        try {
+            if (window.innerWidth >= 992) {
+                if (localStorage.getItem('himarket_sidebar_collapsed') === '1') {
+                    document.body.classList.add('sidebar-collapsed');
+                }
+            }
+        } catch(e) {}
+    })();
+</script>
+{% endblock %}
+

@@ -1,0 +1,304 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- SAYFA BAŞLIĞI VE AKSİYON -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom">
+        <div>
+            <h1 class="h3 fw-bold text-slate-900 mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-truck text-primary"></i> TOPTANCI CARİ HESAPLARI
+            </h1>
+            <span class="text-secondary small fw-medium">Mal alımı yapılan tedarikçi firmalar, cari borç/alacak bakiyeleri ve hesap hareketleri.</span>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-primary text-white fw-bold shadow-xs px-3 py-1.5 d-flex align-items-center gap-1.5" data-bs-toggle="modal" data-bs-target="#newSupplierModal">
+                <i class="bi bi-plus-lg"></i> Yeni Toptancı Ekle (Hızlı)
+            </button>
+            <a href="{% url 'supplier_create_view' %}" class="btn btn-sm btn-outline-primary fw-bold px-3 py-1.5 d-flex align-items-center gap-1.5">
+                <i class="bi bi-building-add"></i> Tam Cari Formu
+            </a>
+        </div>
+    </div>
+
+    <!-- BİLGİ & UYARI MESAJLARI -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3 rounded-2 shadow-xs py-2 px-3 fs-7" role="alert">
+                <i class="bi bi-check-circle-fill me-1"></i> {{ message }}
+                <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- ÖZET VE ARAMA KARTLARI -->
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-md-4">
+            <div class="tabler-card border-start border-4 border-danger h-100">
+                <span class="d-block text-uppercase fw-bold text-secondary fs-8 mb-1">TOPLAM TOPTANCI BORCUMUZ</span>
+                <div class="fs-4 fw-extrabold text-danger">₺{{ total_debt|floatformat:2 }}</div>
+                <div class="text-slate-600 fs-8 mt-1">Ödenmesi gereken toplam vadeli cari bakiye</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-8">
+            <form method="get" class="tabler-card h-100 d-flex flex-column justify-content-center">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border"><i class="bi bi-search text-secondary"></i></span>
+                    <input type="text" name="q" class="form-control" placeholder="Toptancı firma adı, yetkili, telefon veya vergi no ara..." value="{{ search_query }}">
+                    <button type="submit" class="btn btn-primary fw-bold px-3">Ara</button>
+                    {% if search_query %}
+                        <a href="{% url 'supplier_list_view' %}" class="btn btn-light border fw-bold">Temizle</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOPTANCI LİSTESİ TABLOSU -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold text-slate-900">KAYITLI TOPTANCILAR ({{ suppliers.count }})</span>
+            <span class="badge bg-slate-100 text-slate-900 border border-slate-300 fs-8 fw-bold">Güncel Liste</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table mb-0 fs-8 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-3" style="min-width: 200px;">Firma Adı</th>
+                        <th>Yetkili</th>
+                        <th>Telefon / İletişim</th>
+                        <th>Vergi No / Daire</th>
+                        <th class="text-end">Cari Bakiye</th>
+                        <th class="text-end pe-3" style="min-width: 220px;">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for supplier in suppliers %}
+                        <tr>
+                            <td class="ps-3">
+                                <strong class="text-slate-900 fs-7 d-block">{{ supplier.company_name }}</strong>
+                                {% if supplier.notes %}<span class="text-slate-500 fs-8 d-block">{{ supplier.notes|truncatechars:40 }}</span>{% endif %}
+                            </td>
+                            <td class="fw-semibold text-slate-700">{{ supplier.contact_name|default:"-" }}</td>
+                            <td>
+                                {% if supplier.phone %}
+                                    <span class="d-block text-slate-800 fw-bold"><i class="bi bi-telephone-fill text-primary me-1"></i> {{ supplier.phone }}</span>
+                                {% endif %}
+                                {% if supplier.email %}
+                                    <span class="text-slate-600 fs-8 d-block">{{ supplier.email }}</span>
+                                {% endif %}
+                                {% if not supplier.phone and not supplier.email %}-{% endif %}
+                            </td>
+                            <td class="text-slate-700">
+                                {% if supplier.tax_number %}
+                                    <span class="fw-medium font-monospace">{{ supplier.tax_number }}</span>
+                                    {% if supplier.tax_office %}<span class="text-slate-500 d-block fs-8">({{ supplier.tax_office }})</span>{% endif %}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold">
+                                {% if supplier.balance > 0 %}
+                                    <span class="badge bg-danger text-white px-2.5 py-1 fs-8">₺{{ supplier.balance|floatformat:2 }} (Borç)</span>
+                                {% elif supplier.balance < 0 %}
+                                    <span class="badge bg-success text-white px-2.5 py-1 fs-8">₺{{ supplier.balance|floatformat:2 }} (Alacak)</span>
+                                {% else %}
+                                    <span class="badge bg-slate-100 text-slate-900 border border-slate-300 px-2.5 py-1 fs-8 fw-bold">₺0.00</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-3">
+                                <div class="d-inline-flex gap-1.5">
+                                    <a href="{% url 'stock_entry_create' %}?supplier_id={{ supplier.id }}" class="btn btn-sm btn-outline-success fw-bold px-2 py-1 fs-8" title="Bu toptancıdan mal girişi yap">
+                                        <i class="bi bi-box-arrow-in-down me-1"></i> Mal Al
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-2 py-1 fs-8" data-bs-toggle="modal" data-bs-target="#paymentModal{{ supplier.id }}" title="Ödeme veya bakiye hareketi">
+                                        <i class="bi bi-cash-coin me-1"></i> Ödeme
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-light border fw-bold px-2 py-1 fs-8 text-slate-800" data-bs-toggle="modal" data-bs-target="#ledgerModal{{ supplier.id }}" title="Hesap hareket ekstresi">
+                                        <i class="bi bi-journal-text me-1"></i> Ekstre
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-secondary">
+                                <i class="bi bi-truck fs-1 d-block mb-2 text-slate-300"></i>
+                                <span class="fw-bold">Kayıtlı toptancı bulunamadı.</span><br>
+                                <small>Yukarıdaki "Yeni Toptancı Ekle" butonunu kullanarak ilk cari kaydınızı oluşturabilirsiniz.</small>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     TOPTANCI MODALLARI (HTML STANDARTLARINA UYGUN OLARAK TABLO DIŞINDA)
+     ========================================================= -->
+{% for supplier in suppliers %}
+    <!-- TOPTANCI CARİ İŞLEM / ÖDEME MODALI -->
+    <div class="modal fade" id="paymentModal{{ supplier.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border shadow-sm">
+                <div class="modal-header bg-slate-900 text-white py-2.5 px-3">
+                    <h5 class="modal-title fs-7 fw-bold"><i class="bi bi-cash-coin text-warning me-1"></i> {{ supplier.company_name }} - Cari Ödeme / İşlem</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" action="{% url 'supplier_payment_view' supplier.id %}">
+                    {% csrf_token %}
+                    <div class="modal-body p-3 text-start">
+                        <div class="p-2.5 bg-light rounded-2 border mb-3">
+                            <span class="text-secondary d-block fs-8 fw-bold text-uppercase">Mevcut Cari Bakiye</span>
+                            <div class="fs-5 fw-extrabold {% if supplier.balance > 0 %}text-danger{% elif supplier.balance < 0 %}text-success{% else %}text-slate-800{% endif %}">
+                                ₺{{ supplier.balance|floatformat:2 }}
+                            </div>
+                        </div>
+                        <div class="mb-2.5">
+                            <label class="form-label">İşlem Türü *</label>
+                            <select name="transaction_type" class="form-select">
+                                <option value="ODEME">Toptancıya Ödeme Yapıldı (Borç Düşer)</option>
+                                <option value="ALIS">Mal Alımı / Fatura Girişi (Borç Ekler)</option>
+                                <option value="IADE">Toptancıya Mal İadesi (Borç Düşer)</option>
+                                <option value="DUZELTME">Bakiye Düzeltme</option>
+                            </select>
+                        </div>
+                        <div class="mb-2.5">
+                            <label class="form-label">Tutar (TL) *</label>
+                            <input type="number" step="0.01" name="amount" class="form-control form-control-lg fw-bold text-primary" required placeholder="0.00">
+                        </div>
+                        <div class="mb-2.5">
+                            <label class="form-label">Evrak / Makbuz / Fatura No</label>
+                            <input type="text" name="document_no" class="form-control" placeholder="Örn: MK-10293 (Opsiyonel)">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Açıklama</label>
+                            <textarea name="description" class="form-control" rows="2" placeholder="Ödeme yöntemi veya açıklama notu..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer py-2 px-3 bg-light">
+                        <button type="button" class="btn btn-sm btn-light border fw-bold" data-bs-dismiss="modal">İptal</button>
+                        <button type="submit" class="btn btn-sm btn-primary fw-bold px-3 text-white">İşlemi Kaydet</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOPTANCI HESAP EKSTRESİ (HAREKETLER) MODALI -->
+    <div class="modal fade" id="ledgerModal{{ supplier.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border shadow-sm">
+                <div class="modal-header bg-slate-900 text-white py-2.5 px-3">
+                    <h5 class="modal-title fs-7 fw-bold"><i class="bi bi-journal-text text-primary me-1"></i> {{ supplier.company_name }} - Cari Hesap Ekstresi</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-2.5 bg-light border rounded-2 fs-8">
+                        <span><strong>Yetkili:</strong> {{ supplier.contact_name|default:"-" }}</span>
+                        <span><strong>Telefon:</strong> {{ supplier.phone|default:"-" }}</span>
+                        <span><strong>Güncel Bakiye:</strong> <strong class="{% if supplier.balance > 0 %}text-danger{% else %}text-success{% endif %}">₺{{ supplier.balance|floatformat:2 }}</strong></span>
+                    </div>
+                    <div class="table-responsive" style="max-height: 340px; overflow-y: auto;">
+                        <table class="table mb-0 fs-8 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>İşlem Türü</th>
+                                    <th>Evrak No</th>
+                                    <th>Açıklama</th>
+                                    <th class="text-end">Tutar</th>
+                                    <th class="text-end">İşlem Sonrası Bakiye</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for trans in supplier.transactions.all %}
+                                    <tr>
+                                        <td class="text-slate-600 font-monospace">{{ trans.created_at|date:"d.m.Y H:i" }}</td>
+                                        <td>
+                                            <span class="badge {% if trans.transaction_type == 'ALIS' %}bg-danger text-white{% elif trans.transaction_type == 'ODEME' %}bg-success text-white{% else %}bg-secondary text-white{% endif %}">
+                                                {{ trans.get_transaction_type_display }}
+                                            </span>
+                                        </td>
+                                        <td class="font-monospace fw-semibold">{{ trans.document_no|default:"-" }}</td>
+                                        <td class="text-slate-700">{{ trans.description|default:"-" }}</td>
+                                        <td class="text-end fw-bold">₺{{ trans.amount|floatformat:2 }}</td>
+                                        <td class="text-end fw-extrabold text-slate-900">₺{{ trans.balance_after|floatformat:2 }}</td>
+                                    </tr>
+                                {% empty %}
+                                    <tr><td colspan="6" class="text-center py-4 text-secondary">Henüz cari hesap hareketi kaydedilmemiş.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer py-2 px-3 bg-light">
+                    <button type="button" class="btn btn-sm btn-light border fw-bold" data-bs-dismiss="modal">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+
+<!-- YENİ TOPTANCI HIZLI KAYIT MODALI -->
+<div class="modal fade" id="newSupplierModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border shadow-sm">
+            <div class="modal-header bg-primary text-white py-2.5 px-3">
+                <h5 class="modal-title fs-7 fw-bold"><i class="bi bi-truck me-1"></i> Yeni Toptancı Carisi Tanımla</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'supplier_create_view' %}">
+                {% csrf_token %}
+                <div class="modal-body p-3">
+                    <div class="row g-2.5">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Toptancı / Firma Adı *</label>
+                            <input type="text" name="company_name" class="form-control" required placeholder="Örn: Sütaş Gıda Dağıtım A.Ş.">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Yetkili Kişi</label>
+                            <input type="text" name="contact_name" class="form-control" placeholder="Örn: Mehmet Bey">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Telefon</label>
+                            <input type="text" name="phone" class="form-control" placeholder="05xx xxx xx xx">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">E-Posta</label>
+                            <input type="email" name="email" class="form-control" placeholder="siparis@toptanci.com">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Vergi Dairesi</label>
+                            <input type="text" name="tax_office" class="form-control" placeholder="Örn: Kadıköy V.D.">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Vergi / T.C. Kimlik No</label>
+                            <input type="text" name="tax_number" class="form-control" placeholder="10 haneli vergi no">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Açılış Cari Bakiyesi (TL)</label>
+                            <input type="number" step="0.01" name="initial_balance" class="form-control" value="0.00" placeholder="0.00 (Borç ise pozitif)">
+                            <small class="text-secondary fs-8">Firmaya olan borcunuz varsa pozitif (+), alacağınız varsa eksi (-) yazınız.</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Adres</label>
+                            <textarea name="address" class="form-control" rows="2" placeholder="Firma adresi..."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Notlar</label>
+                            <textarea name="notes" class="form-control" rows="2" placeholder="Sipariş günleri, plasiyer notları..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2 px-3 bg-light">
+                    <button type="button" class="btn btn-sm btn-light border fw-bold" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-bold px-3 text-white">Toptancıyı Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

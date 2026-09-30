@@ -1,0 +1,276 @@
+{% extends "admin/base_site.html" %}
+{% load static l10n %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- SAYFA BAŞLIĞI VE HİYERARŞİK AKSİYONLAR -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-info text-white fs-8 px-2 py-0.5 rounded-1">STOK & İRSALİYE</span>
+                <span class="text-secondary fs-8 fw-semibold">/ Mal Hareket Geçmişi</span>
+            </div>
+            <h1 class="h3 fw-bold text-slate-900 mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-card-checklist text-info"></i> STOK HAREKETLERİ VE İRSALİYELER
+            </h1>
+            <span class="text-secondary small fw-medium">Toptancılardan yapılan tüm mal kabulleri, irsaliyeler ve toptancıya mal iadeleri geçmişi.</span>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'product_catalog_view' %}" class="btn btn-sm btn-outline-secondary fw-bold px-3 py-1.5 d-flex align-items-center gap-1.5">
+                <i class="bi bi-grid-3x3-gap-fill text-warning"></i> Ürün Kataloğu
+            </a>
+            <a href="{% url 'stock_entry_create' %}" class="btn btn-sm btn-primary text-white fw-bold shadow-xs px-3 py-1.5 d-flex align-items-center gap-1.5">
+                <i class="bi bi-plus-lg"></i> Yeni Mal Kabul / İade Yap
+            </a>
+        </div>
+    </div>
+
+    <!-- BİLGİ & UYARI MESAJLARI -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3 rounded-2 shadow-xs py-2 px-3 fs-7" role="alert">
+                <i class="bi bi-check-circle-fill me-1"></i> {{ message }}
+                <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- STOK GİRİŞ / İADE FİNANSAL KPI ÖZET KARTLARI -->
+    <div class="row g-2.5 mb-3">
+        <div class="col-6 col-lg-3">
+            <div class="tabler-card border-start border-4 border-info h-100 p-2.5">
+                <div class="text-secondary fs-8 fw-bold text-uppercase">TOPLAM FİŞ ADEDİ</div>
+                <div class="fs-4 fw-extrabold text-slate-900">{{ total_entries_count }} <span class="fs-7 fw-normal text-slate-500">Kayıt</span></div>
+                <div class="text-slate-500 fs-8 mt-0.5">Sistemdeki tüm stok evrakları</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="tabler-card border-start border-4 border-success h-100 p-2.5">
+                <div class="text-secondary fs-8 fw-bold text-uppercase">TOPLAM MAL KABUL (GİRİŞ)</div>
+                <div class="fs-4 fw-extrabold text-success">₺{{ total_in|floatformat:2 }}</div>
+                <div class="text-slate-500 fs-8 mt-0.5">Stoka giren mal alım hacmi</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="tabler-card border-start border-4 border-danger h-100 p-2.5">
+                <div class="text-secondary fs-8 fw-bold text-uppercase">TOPTANCI İADESİ (ÇIKIŞ)</div>
+                <div class="fs-4 fw-extrabold text-danger">₺{{ total_out|floatformat:2 }}</div>
+                <div class="text-slate-500 fs-8 mt-0.5">Toptancıya iade edilen mallar</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="tabler-card border-start border-4 border-warning h-100 p-2.5">
+                <div class="text-secondary fs-8 fw-bold text-uppercase">VERESİYE ALIM TUTARI</div>
+                <div class="fs-4 fw-extrabold text-warning">₺{{ total_veresiye|floatformat:2 }}</div>
+                <div class="text-slate-500 fs-8 mt-0.5">Cari hesaba borç işlenen faturalar</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ARAMA VE FİLTRE ÇUBUĞU -->
+    <form method="get" class="tabler-card mb-3 py-2 px-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border"><i class="bi bi-search text-secondary"></i></span>
+                    <input type="text" name="q" class="form-control" placeholder="Fiş no, fatura no veya toptancı adı ara..." value="{{ search_q }}">
+                </div>
+            </div>
+            <div class="col-12 col-md-3">
+                <select name="type" class="form-select">
+                    <option value="">-- Tüm İşlem Türleri --</option>
+                    <option value="GIRIS" {% if selected_type == 'GIRIS' %}selected{% endif %}>📦 Mal Alımı (Stok Girişi)</option>
+                    <option value="IADE" {% if selected_type == 'IADE' %}selected{% endif %}>↩️ Toptancı İadesi (Stok Çıkışı)</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <select name="supplier" class="form-select">
+                    <option value="">-- Tüm Toptancılar --</option>
+                    {% for s in suppliers %}
+                        <option value="{{ s.id }}" {% if selected_supplier == s.id|stringformat:"s" %}selected{% endif %}>{{ s.company_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-2 d-flex gap-1">
+                <button type="submit" class="btn btn-primary fw-bold w-100 text-white">Filtrele</button>
+                {% if search_q or selected_type or selected_supplier %}
+                    <a href="{% url 'stock_entry_list' %}" class="btn btn-light border" title="Filtreyi Temizle"><i class="bi bi-x-lg"></i></a>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+
+    <!-- FİŞLER TABLOSU -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold text-slate-900">STOK İRSALİYE VE FATURA LİSTESİ ({{ entries.count }})</span>
+            <span class="badge bg-slate-100 text-slate-900 border border-slate-300 fs-8 fw-bold">Evrak Arşivi</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table mb-0 fs-8 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-3" style="min-width: 170px;">Fiş Numarası</th>
+                        <th>İşlem Türü</th>
+                        <th>Toptancı / Tedarikçi</th>
+                        <th>Fatura / İrsaliye No</th>
+                        <th class="text-center">Kalem</th>
+                        <th>Ödeme Durumu</th>
+                        <th>Tarih</th>
+                        <th class="text-end">Toplam Tutar</th>
+                        <th class="text-end pe-3">Detay</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in entries %}
+                        <tr>
+                            <td class="ps-3 font-monospace fw-bold {% if entry.entry_type == 'IADE' %}text-danger{% else %}text-primary{% endif %}">
+                                #{{ entry.entry_number }}
+                            </td>
+                            <td>
+                                {% if entry.entry_type == 'IADE' %}
+                                    <span class="badge bg-danger text-white px-2 py-1"><i class="bi bi-arrow-return-left me-1"></i> Toptancı İadesi</span>
+                                {% else %}
+                                    <span class="badge bg-success text-white px-2 py-1"><i class="bi bi-box-arrow-in-down me-1"></i> Mal Alımı</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-bold text-slate-900">
+                                {% if entry.supplier %}
+                                    <i class="bi bi-truck text-primary me-1"></i> {{ entry.supplier.company_name }}
+                                {% else %}
+                                    <span class="text-secondary">Genel Stok Girişi</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-semibold text-slate-700 font-monospace">{{ entry.invoice_number|default:"-" }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-slate-100 text-slate-900 border border-slate-300 px-2.5 py-1 fw-bold">{{ entry.items.count }} Kalem</span>
+                            </td>
+                            <td>
+                                {% if entry.payment_type == 'VERESIYE' %}
+                                    <span class="badge bg-warning text-dark">Cari Hesaba Borç</span>
+                                {% elif entry.payment_type == 'NAKIT' %}
+                                    <span class="badge bg-success text-white">Nakit Ödendi</span>
+                                {% elif entry.payment_type == 'HAVALE' %}
+                                    <span class="badge bg-info text-white">Banka / Havale</span>
+                                {% else %}
+                                    <span class="badge bg-primary text-white">Kredi Kartı</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-slate-600 font-monospace">{{ entry.entry_date|date:"d.m.Y H:i" }}</td>
+                            <td class="text-end fw-extrabold font-monospace {% if entry.entry_type == 'IADE' %}text-danger{% else %}text-slate-900{% endif %} fs-7">
+                                {% if entry.entry_type == 'IADE' %}-{% endif %}₺{{ entry.total_amount|floatformat:2 }}
+                            </td>
+                            <td class="text-end pe-3">
+                                <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-2 py-1 fs-8" data-bs-toggle="modal" data-bs-target="#entryModal{{ entry.id }}">
+                                    <i class="bi bi-eye me-1"></i> Fiş Detayı
+                                </button>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5 text-secondary">
+                                <i class="bi bi-card-checklist fs-1 d-block mb-2 text-slate-300"></i>
+                                <span class="fw-bold">Kayıtlı stok fişi bulunamadı.</span><br>
+                                <small>Toptancıdan mal aldığınızda veya iade yaptığınızda "Yeni Mal Kabul / İade Yap" butonunu kullanabilirsiniz.</small>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     FİŞ DETAY MODALLARI (HTML STANDARTLARINA UYGUN OLARAK TABLO DIŞINDA)
+     ========================================================= -->
+{% for entry in entries %}
+    <div class="modal fade" id="entryModal{{ entry.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border shadow-sm">
+                <div class="modal-header bg-slate-900 text-white py-2.5 px-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-receipt-cutoff text-warning fs-5"></i>
+                        <h5 class="modal-title fs-7 fw-bold">Stok Fişi: #{{ entry.entry_number }}</h5>
+                        {% if entry.entry_type == 'IADE' %}
+                            <span class="badge bg-danger text-white">TOPTANCI İADESİ</span>
+                        {% else %}
+                            <span class="badge bg-success text-white">MAL ALIMI</span>
+                        {% endif %}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <!-- FİŞ ÜST BİLGİLERİ -->
+                    <div class="row g-2 mb-3 p-2.5 bg-light rounded-2 border fs-8">
+                        <div class="col-6 col-md-3">
+                            <span class="text-secondary d-block">Toptancı Firma:</span>
+                            <strong class="text-slate-900">{{ entry.supplier.company_name|default:"Genel Giriş" }}</strong>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <span class="text-secondary d-block">Fatura / İrsaliye No:</span>
+                            <strong class="font-monospace text-primary">{{ entry.invoice_number|default:"-" }}</strong>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <span class="text-secondary d-block">Ödeme Türü:</span>
+                            <strong class="text-slate-900">{{ entry.get_payment_type_display }}</strong>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <span class="text-secondary d-block">İşlem Tarihi:</span>
+                            <strong class="font-monospace text-slate-700">{{ entry.entry_date|date:"d.m.Y H:i" }}</strong>
+                        </div>
+                        {% if entry.notes %}
+                            <div class="col-12 mt-1 pt-1 border-top">
+                                <span class="text-secondary">Not / Açıklama:</span>
+                                <span class="text-slate-800 fw-medium">{{ entry.notes }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- FİŞ İÇERİĞİNDEKİ ÜRÜN KALEMLERİ -->
+                    <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+                        <table class="table mb-0 fs-8 align-middle">
+                            <thead>
+                                <tr>
+                                    <th class="ps-2">Ürün Adı</th>
+                                    <th>Barkod</th>
+                                    <th class="text-center">Miktar</th>
+                                    <th class="text-end">Birim Alış (₺)</th>
+                                    <th class="text-end pe-2">Satır Toplamı (₺)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in entry.items.all %}
+                                    <tr>
+                                        <td class="ps-2 fw-bold text-slate-900">{{ item.product.name }}</td>
+                                        <td class="font-monospace text-primary">{{ item.product.barcode }}</td>
+                                        <td class="text-center fw-extrabold">{{ item.quantity|floatformat:2 }} {{ item.product.unit }}</td>
+                                        <td class="text-end font-monospace">₺{{ item.buy_price|floatformat:2 }}</td>
+                                        <td class="text-end pe-2 fw-extrabold font-monospace text-slate-900">₺{{ item.total_price|floatformat:2 }}</td>
+                                    </tr>
+                                {% empty %}
+                                    <tr><td colspan="5" class="text-center py-3 text-secondary">Fişte kayıtlı ürün kalemi bulunmuyor.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- TOPLAM TUTAR BARI -->
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2.5 border-top">
+                        <span class="text-secondary fs-8 fw-semibold">Toplam {{ entry.items.count }} Kalem Ürün</span>
+                        <div class="text-end">
+                            <span class="text-secondary fs-8 d-block">Genel Fatura Tutarı:</span>
+                            <span class="fs-4 fw-extrabold font-monospace {% if entry.entry_type == 'IADE' %}text-danger{% else %}text-success{% endif %}">
+                                {% if entry.entry_type == 'IADE' %}-{% endif %}₺{{ entry.total_amount|floatformat:2 }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2 px-3 bg-light">
+                    <button type="button" class="btn btn-sm btn-light border fw-bold" data-bs-dismiss="modal">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+{% endblock %}

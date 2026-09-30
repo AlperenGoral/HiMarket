@@ -1,0 +1,42 @@
+{% load i18n %}
+<div class="actions d-flex flex-wrap align-items-center justify-content-between gap-2 py-2 px-3 bg-light border-bottom">
+  {% block actions %}
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <span class="fw-bold fs-8 text-slate-700 text-uppercase d-flex align-items-center gap-1.5">
+        <i class="bi bi-check2-square text-primary"></i> Toplu Eylem:
+      </span>
+      {% block actions-form %}
+        {% for field in action_form %}
+          {{ field }}
+        {% endfor %}
+      {% endblock %}
+      {% block actions-submit %}
+        <button type="submit" class="btn btn-sm btn-primary fw-bold text-white px-3 py-1.5 shadow-xs" name="index" value="{{ action_index|default:0 }}">
+          <i class="bi bi-play-fill"></i> Uygula
+        </button>
+      {% endblock %}
+    </div>
+    {% block actions-counter %}
+      {% if actions_selection_counter %}
+        <div class="d-flex align-items-center gap-2">
+          <span class="action-counter badge bg-slate-100 text-slate-900 border border-slate-300 py-1.5 px-3 fs-8 fw-bold" data-actions-icnt="{{ cl.result_list|length }}" aria-live="polite" aria-atomic="true">
+            {{ selection_note }}
+          </span>
+          {% if cl.result_count != cl.result_list|length %}
+            <span class="all hidden">{{ selection_note_all }}</span>
+            <span class="question hidden">
+              <a role="button" href="#" class="btn btn-sm btn-outline-primary py-0.5 px-2 fs-8 fw-semibold">
+                {% blocktranslate with cl.result_count as total_count %}Tüm {{ total_count }} {{ module_name }} seç{% endblocktranslate %}
+              </a>
+            </span>
+            <span class="clear hidden">
+              <a role="button" href="#" class="btn btn-sm btn-outline-danger py-0.5 px-2 fs-8 fw-semibold">
+                Seçimi kaldır
+              </a>
+            </span>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endblock %}
+  {% endblock %}
+</div>
