@@ -1,0 +1,7 @@
+birim fiyat: toptancıdan malzeme alırken iskonto ve kdv yüzdelerini uygulamadan önce verdiği fiyat 
+alış fiyat: toptancının önce iskonto yüzdesi ile yaptığı indirimli fiyat üzerine kdv yüzdesini eklediği fiyat 
+satış fiyat: alınan malzenin alış fiyatının üzerine satıcının belirlediği kdv fiyatı ile kendi belirlediği kar miktarı ile oluşturduğu nihai fiyat
+toptancı cari kısmında şuan için herhangi bir değişiklik istemiyorum 
+yeni mal kabul ve iade kısmında ise toptancı seçilince hangi toptancıdan hangi ürün daha önce alınmışsa onlar listelensin ya da bir ürün ilk kez alınıyorsa otomatik olarak o toptancıya kaydedilsin ve birim fiyat (iskonto kdv isteğe bağlı) girilince otomatik alış fiyatı belirlensin ürünün stok sayısı girilsin stok cinsi adet kg litre gram gibi seçilebilsin ve yeni ürün tanımla kısmında ürünün barkodu isteğe bağlı koli barkodu ürünün kategorisi ürünün adı otomatik girilsin 
+ürün kataloğu kısmında ise gösterilen kar yüzdesi yanlış hesaplanıp gösteriliyor 
+birde şuan ürünü satarken satış fiyatı üstüne kdv yapıp o şekilde satış yapılıyor bu yanlış kdv oranı satış fiyatı içine dahil olmalı 

@@ -11,7 +11,7 @@
     <WebBrowserUrl>http://localhost:8000</WebBrowserUrl>
     <LaunchProvider>Django launcher</LaunchProvider>
     <DjangoSettingsModule>himarket_project.settings</DjangoSettingsModule>
-    <OutputPath>.</OutputPath>
+    <OutputPath>bin\Debug\</OutputPath>
     <SuppressCollectPythonCloudServiceFiles>true</SuppressCollectPythonCloudServiceFiles>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">

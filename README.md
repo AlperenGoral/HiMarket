@@ -36,11 +36,33 @@ Hİ MARKET, perakende satış noktaları (süpermarket, manav, şarküteri vb.) 
 
 ## 💻 Çalıştırma Talimatı
 
-Projeyi çalıştırmak için ana dizindeki `BASLAT.bat` dosyasını çalıştırmanız yeterlidir:
+### Yöntem 1: Tek Tıkla Başlatma (Tavsiye Edilen)
+Projeyi GitHub'tan indirdikten sonra çalıştırmak için:
 
-1. `BASLAT.bat` dosyasına çift tıklayın.
-2. C# Backend API (Port 5000) ve Django Sunucusu (Port 8000) otomatik olarak başlatılacaktır.
-3. Tarayıcınızda `http://127.0.0.1:8000/login/` adresi açılacaktır.
+1. Bilgisayarınızda **Python 3.10 veya üzeri** yüklü olduğundan emin olun (Kurulum yaparken **"Add Python to PATH"** kutucuğunu mutlaka işaretleyiniz).
+2. Ana dizindeki **`BASLAT.bat`** dosyasına çift tıklayın.
+   - Script ilk çalıştırmada gerekli Python paketlerini (`requirements.txt`) otomatik olarak yükler ve veritabanı tablolarını hazırlar.
+   - C# Backend API'sini (Port 5000) ve Django Sunucusunu (Port 8000) otomatik başlatır.
+3. Tarayıcınızda otomatik olarak açılacak adres:
+   - **Bilgisayar:** `http://127.0.0.1:8000/login/`
+   - **Aynı Wi-Fi'daki Telefon/Tablet:** Ekranda yazan yerel IP adresi (Örn: `http://192.168.1.xxx:8000/login/`)
+
+### Yöntem 2: Visual Studio 2022 ile Geliştirme (C# Backend)
+1. Visual Studio 2022 ile ana dizindeki **`HiMarket.sln`** dosyasını açın.
+2. `HiMarket.API` projesinin başlangıç projesi (Startup Project) olduğunu doğrulayın ve **F5** (veya `Ctrl+F5`) tuşuna basarak başlatın.
+3. C# Swagger API paneli `http://localhost:5000/swagger` adresinde açılacaktır.
+
+---
+
+## 🔑 Varsayılan Giriş Bilgileri
+
+* **Kasa Girişi (Kasiyer):**
+  * Kasa: `KASA-01`
+  * Hızlı PIN Kodu: `1234`
+* **Yönetici Paneli (Admin):**
+  * Adres: `http://127.0.0.1:8000/login/` veya `http://127.0.0.1:8000/admin/`
+  * Kullanıcı Adı: `admin`
+  * Şifre: `admin123`
 
 ---
 

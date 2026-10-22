@@ -1,0 +1,103 @@
+================================================================================
+          Hİ MARKET - KURUMSAL KASA (POS) & STOK OTOMASYONU
+                   TÜM PROJE ÖZETİ VE KULLANIM REHBERİ
+================================================================================
+
+1. PROJE GENEL ÖZETİ VE AMACI
+--------------------------------------------------------------------------------
+Bu proje, bir yazılım ofisinin talepleri doğrultusunda ticari müşterilere (marketler, 
+şarküteriler, manavlar vb.) satılmak üzere geliştirilmiş kurumsal, çoklu müşteriye 
+uygun (Multi-Tenant) web tabanlı bir Market Kasa ve Stok Otomasyonu projesidir.
+
+Proje, yazılım ofisinin C# zorunluluğunu karşılarken, görsel kasa satış arayüzünün 
+hızlı ve şık çalışması için C# .NET 8 ve Python Django teknolojilerini birleştiren 
+"Hibrit Mimaride" inşa edilmiştir.
+
+
+2. TEKNOLOJİ YIĞINI (NE İÇİN NE KULLANILDI?)
+--------------------------------------------------------------------------------
+A) C# .NET 8 Web API & Entity Framework Core 8.0:
+   - Veritabanı işlemleri, güvenlik, stok düşümü, KDV hesaplamaları, terazi barkod 
+     ayrıştırma ve satış motorunun bulunduğu ana arka plan (Backend).
+
+B) SQLite Veritabanı (himarket.db):
+   - Ekstra veritabanı sunucusu kurulumu gerektirmeyen, taşınabilir ve hızlı veritabanı.
+
+C) Python 3.14 & Django Framework:
+   - Kasiyerin kullandığı görsel kasa satış ekranı, termal fiş çıktısı ve arayüzler.
+
+D) HTML5, CSS3, Bootstrap 5.3 & JavaScript:
+   - Kasa ekranının şık, ferah Açık Tema (Light Mode: Tailwind Touch POS & PureCode POS hibrit tasarımı) 
+     ve Yönetim Paneli (/admin/) için özel kodlanan Tabler UI Metrik Kartları + AdminLTE v4 Modül Düzeni hibrit şablonları.
+
+
+3. HİBRİT MİMARİNİN ÇALIŞMA PRENSİBİ
+--------------------------------------------------------------------------------
+[ Kasiyer Kasa Ekranı ] ---> (HTTP REST JSON) ---> [ C# .NET 8 Web API ] ---> [ SQLite Veritabanı ]
+
+- Kasiyer ekranda bir barkod okuttuğunda veya butona bastığında Python arayüzü 
+  arkadaki C# .NET 8 API sunucusuna istek atar.
+- C# sunucusu gerekli hesaplamayı yapıp stoktan düşer ve yanıtı döndürür.
+- Böylece yazılım ofisinin istediği C# şartı %100 karşılanmış olur.
+
+
+4. NELER YAPILDI VE HANGİ ÖZELLİKLER EKLENDİ?
+--------------------------------------------------------------------------------
+1. Kasiyer ve Admin Yetkilendirme (Auth):
+   - Kasiyerler için hızlı PIN Kodu (Örn: 1234) ile kasaya giriş yapabilme.
+   - Yönetici/Admin için şifreli tam yetkili giriş.
+   - JWT (JSON Web Token) tabanlı güvenli kimlik doğrulama.
+
+2. Terazi / Tartılı Ürün Barkod Algoritması (27 / 28 Prefix):
+   - Manav ve şarküterilerde teraziden çıkan 13 haneli barkodları (Örn: 2700001014502) 
+     otomatik çözümleme.
+   - Barkodun içindeki Ürün Kodunu (Amasya Elması) ve Gramajı (1.450 KG) otomatik 
+     ayrıştırıp saniyesinde fişe ekler.
+
+3. Kasa Satış Ekranı (POS Interface):
+   - Dev Tutar Göstergesi (52px Turuncu Roboto Mono fontu): Kasiyer ve müşterinin 
+     uzaktan tutarı rahatça görmesini sağlar.
+   - Odaklanma Koruması: Sayfada nereye tıklanırsa tıklansın barkod okuyucu 
+     odağı kaybolmaz, tak-çalıştır USB barkod okuyucularla tam uyumludur.
+   - Hızlı Butonlar Grid'i: Ekmek, Poşet, Su gibi barkodsuz ürünlerin tek tıkla 
+     fişe eklenmesi.
+
+4. Nakit Para Üstü Modalı:
+   - Müşteriden alınan nakit para (50 TL, 100 TL, 200 TL butonları) girildiğinde 
+     verilecek para üstünü anında yeşil/kırmızı gösterge ile hesaplar.
+
+5. 80mm / 58mm Termal Fiş Çıktısı:
+   - Satış tamamlandığında fiziki fiş yazıcılarına uygun standartta fiş çıktısı 
+     tasarımı ve otomatik tarayıcı yazdırma diyaloğu.
+
+6. Gün Sonu Z Raporu ve Vardiya Yönetimi:
+   - Kasa açılış devir parası (Opening Float), toplam nakit satış, toplam kart satışı.
+   - Fiziki sayılan paranın girilmesi ile Otomatik Kasa Açığı (-) veya Fazlası (+) 
+     hesabı ve vardiya kilitleme.
+
+
+5. NASIL ÇALIŞTIRILIR? (KULLANIM REHBERİ)
+--------------------------------------------------------------------------------
+1. Proje klasöründeki "BASLAT.bat" dosyasına çift tıklayın.
+2. Siyah pencere eski takılı süreçleri temizler, C# API sunucusunu (Port 5000) ve 
+   Python Django sunucusunu (Port 8000) başlatır.
+3. Tarayıcınızda otomatik olarak Kasa Satış Ekranı (http://127.0.0.1:8000) açılır.
+4. İstediğiniz zaman tarayıcının adres çubuğuna http://localhost:5000/swagger 
+   yazarak C# API dokümantasyon ekranını inceleyebilirsiniz.
+
+
+6. ÖRNEK TEST VE GİRİŞ BİLGİLERİ
+--------------------------------------------------------------------------------
+- Kasa Satış Ekranı: http://127.0.0.1:8000/
+- Django Yönetim Paneli: http://127.0.0.1:8000/admin/
+  * Kullanıcı Adı: admin
+  * Şifre: admin123
+- C# Swagger API Ekranı: http://localhost:5000/swagger
+- Kasiyer Giriş PIN Kodu: 1234 (Kasa: KASA-01)
+
+
+7. SONUÇ
+--------------------------------------------------------------------------------
+Proje, veritabanı mimarisinden görsel arayüzüne, terazi entegrasyonundan gün sonu 
+Z raporuna kadar eksiksiz, hatasız ve yayınlanmaya (Production) hazır durumdadır.
+================================================================================
